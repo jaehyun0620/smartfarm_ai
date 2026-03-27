@@ -1,0 +1,17 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+.DS_Store
+model/saved/*.pt
+model/saved/*.pth
+data/raw/smartfarmkorea/*
+!data/raw/smartfarmkorea/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/collected/*
+!data/collected/.gitkeep
+node_modules/
+dashboard/build/
+*.ipynb_checkpoints/
