@@ -14,4 +14,6 @@ data/collected/*
 !data/collected/.gitkeep
 node_modules/
 dashboard/build/
+dashboard/dist/
+dashboard/.claude/
 *.ipynb_checkpoints/

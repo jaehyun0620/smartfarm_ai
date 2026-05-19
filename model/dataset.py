@@ -15,19 +15,16 @@ from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from typing import Tuple, Optional
 
-# 센서 컬럼 정의 (CLAUDE.md 기준)
+# 센서 컬럼 정의
+# 현재: 스마트팜코리아 공개 데이터 기준 (6개)
+# 추후: 테스트베드 수집 후 indoor_temp_bot, outdoor_humid, fan_rpm, fan_current 추가
 SENSOR_COLUMNS = [
-    "indoor_temp_top",
-    "indoor_humid_top",
-    "indoor_temp_bot",
-    "indoor_humid_bot",
+    "indoor_temp",
+    "indoor_humid",
     "outdoor_temp",
-    "outdoor_humid",
     "light",
     "soil_moisture",
-    # "co2",      # 선택 항목 — 필요 시 활성화
-    # "fan_rpm",  # 이상 감지 실험 시 활성화
-    # "fan_current",
+    "co2",
 ]
 
 LABEL_COLUMN = "risk_level"  # 0:정상, 1:주의, 2:위험
@@ -145,47 +142,60 @@ def get_dataloaders(
 
 def generate_dummy_data(n_samples: int = 2000, seed: int = 42) -> pd.DataFrame:
     """
-    5가지 시나리오를 포함한 더미 센서 데이터 생성.
+    봄철(3~5월) 딸기 재배 베이스라인 기준 더미 데이터 생성.
+    스마트팜코리아 0000574 봄 데이터 통계 기반.
 
-    S1: 정상 (risk=0)
-    S2: 고습 위험 humid > 85% (risk=2)
-    S3: 환기 저하 fan_rpm 급감 (risk=1)
-    S4: 과부하 fan_current 급등 (risk=2)
-    S5: 복합 이상 (risk=2)
+    정상 범위:
+      내부 온도:  8~26°C  (평균 15.3°C)
+      내부 습도:  60~87%  (정상 클래스 평균 66.7%)
+      외부 온도:  0~20°C  (봄철 평균 3.1°C)
+      조도:       0~735 lux (평균 107 lux)
+      CO2:        400~700 ppm (평균 588 ppm)
+
+    시나리오:
+      S1: 정상      (risk=0) 65%
+      S2: 고습 위험  (risk=2) 20%  → 습도 92% 이상
+      S3: 고온 주의  (risk=1) 10%  → 온도 26~30°C
+      S5: 복합 이상  (risk=2)  5%  → 고온 + 고습 동시
     """
     rng = np.random.default_rng(seed)
     n = n_samples
 
-    # 기본 센서값 (정상 범위)
+    # S1 정상 기본값 (봄철 베이스라인 기준)
     df = pd.DataFrame({
-        "indoor_temp_top":   rng.normal(24, 1.5, n),
-        "indoor_humid_top":  rng.normal(60, 5,   n),
-        "indoor_temp_bot":   rng.normal(23, 1.5, n),
-        "indoor_humid_bot":  rng.normal(62, 5,   n),
-        "outdoor_temp":      rng.normal(20, 3,   n),
-        "outdoor_humid":     rng.normal(55, 8,   n),
-        "light":             rng.uniform(1000, 5000, n),
-        "soil_moisture":     rng.uniform(0.3, 0.7, n),
-        "risk_level":        0,
+        "indoor_temp":    rng.normal(15.3, 5.0, n),    # 봄철 평균 15.3°C
+        "indoor_humid":   rng.normal(70.0, 8.0, n),    # 정상 클래스 평균 66.7%
+        "outdoor_temp":   rng.normal(5.0,  6.0, n),    # 봄철 외부 평균 3.1°C
+        "light":          rng.uniform(0, 400, n),       # 봄철 평균 107 lux
+        "soil_moisture":  np.zeros(n),                  # 공개 데이터 대부분 0
+        "co2":            rng.normal(588, 80, n),       # 봄철 평균 588 ppm
+        "risk_level":     0,
     })
 
-    # S2: 고습 위험 구간 (20%)
+    # S2: 고습 위험 구간 (20%) → risk=2
     s2 = rng.choice(n, size=int(n * 0.2), replace=False)
-    df.loc[s2, "indoor_humid_top"]  = rng.uniform(85, 95, len(s2))
-    df.loc[s2, "indoor_humid_bot"]  = rng.uniform(83, 93, len(s2))
-    df.loc[s2, "risk_level"] = 2
+    df.loc[s2, "indoor_humid"] = rng.uniform(92, 100, len(s2))
+    df.loc[s2, "risk_level"]   = 2
 
-    # S3: 환기 저하 구간 (10%) → 주의
-    s3 = rng.choice(np.setdiff1d(range(n), s2), size=int(n * 0.1), replace=False)
-    df.loc[s3, "indoor_temp_top"]  += rng.uniform(3, 6, len(s3))
-    df.loc[s3, "risk_level"] = 1
+    # S3: 고온 주의 구간 (10%) → risk=1
+    remaining_s3 = np.setdiff1d(range(n), s2)
+    s3 = rng.choice(remaining_s3, size=int(n * 0.1), replace=False)
+    df.loc[s3, "indoor_temp"]  = rng.uniform(26, 30, len(s3))
+    df.loc[s3, "risk_level"]   = 1
 
-    # S5: 복합 이상 구간 (5%) → 위험
-    remaining = np.setdiff1d(np.setdiff1d(range(n), s2), s3)
-    s5 = rng.choice(remaining, size=int(n * 0.05), replace=False)
-    df.loc[s5, "indoor_temp_top"]   += rng.uniform(5, 8, len(s5))
-    df.loc[s5, "indoor_humid_top"]  += rng.uniform(15, 25, len(s5))
-    df.loc[s5, "risk_level"] = 2
+    # S5: 복합 이상 구간 (5%) → risk=2
+    remaining_s5 = np.setdiff1d(remaining_s3, s3)
+    s5 = rng.choice(remaining_s5, size=int(n * 0.05), replace=False)
+    df.loc[s5, "indoor_temp"]  = rng.uniform(30, 35, len(s5))
+    df.loc[s5, "indoor_humid"] = rng.uniform(92, 100, len(s5))
+    df.loc[s5, "risk_level"]   = 2
+
+    # 값 범위 클리핑 (센서 물리적 범위 초과 방지)
+    df["indoor_temp"]  = df["indoor_temp"].clip(3, 40)
+    df["indoor_humid"] = df["indoor_humid"].clip(10, 100)
+    df["outdoor_temp"] = df["outdoor_temp"].clip(-5, 30)
+    df["light"]        = df["light"].clip(0, 800)
+    df["co2"]          = df["co2"].clip(200, 1500)
 
     return df
 
