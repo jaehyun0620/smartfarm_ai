@@ -8,5 +8,6 @@ seaborn
 firebase-admin
 fastapi
 uvicorn
+pyserial
 python-dotenv
 jupyter

@@ -5,7 +5,7 @@ import {
 
 // ── API 설정 ──────────────────────────────────────────────────────────────────
 // 백엔드 연결 시 여기만 수정하면 됨
-const API_BASE_URL = 'http://localhost:8000'
+const API_BASE_URL = 'https://smelting-evolution-grumpily.ngrok-free.dev'
 const API_ENDPOINT = `${API_BASE_URL}/api/sensor-logs`   // GET → records[]
 const POLL_INTERVAL_MS = 30_000                           // 30초마다 자동 갱신
 
@@ -42,29 +42,34 @@ function transformRecords(records) {
 
   const latest = records[records.length - 1]
 
+  // 중첩 구조(sensors/actuators/states) 또는 flat 구조 모두 지원
+  const s  = latest.sensors   ?? latest   // 센서값
+  const a  = latest.actuators ?? latest   // 구동부
+  const st = latest.states    ?? latest   // 상태
+
   // 센서 값 계산
-  const temp     = parseFloat(latest.temp1)
-  const hum      = parseFloat(latest.hum1)
-  const soil     = parseInt(latest.soil_percent)
-  const lightRaw = parseInt(latest.light_raw)
-  const co2      = parseInt(latest.co2_raw)
-  const waterPct = Math.min(100, Math.round(parseInt(latest.water_raw) / 1023 * 100))
+  const temp     = parseFloat(s.temp1)
+  const hum      = parseFloat(s.hum1)
+  const soil     = parseInt(s.soil_percent)
+  const lightRaw = parseInt(s.light_raw)
+  const co2      = parseInt(s.co2_raw)
+  const waterPct = Math.min(100, Math.round(parseInt(s.water_raw) / 1023 * 100))
 
   // ── 센서 카드 데이터 ──
   const sensors = {
-    soil:    { value: soil,    unit: '%',   label: '토양 수분', range: '적정 40~70%',      status: soil >= 40 && soil <= 70 ? '정상' : soil < 40 ? '부족' : '과습',          color: soil >= 40 && soil <= 70 ? 'green' : soil < 40 ? 'orange' : 'blue' },
-    co2:     { value: co2,     unit: 'ppm', label: 'CO₂',      range: '적정 400~1000ppm', status: STATE_LABEL[latest.co2_state]      ?? '정상', color: STATE_COLOR[latest.co2_state]      ?? 'green' },
-    temp:    { value: temp,    unit: '°C',  label: '온도',      range: '적정 18~28°C',     status: STATE_LABEL[latest.temp_state]     ?? '정상', color: STATE_COLOR[latest.temp_state]     ?? 'green' },
-    humidity:{ value: hum,     unit: '%',   label: '습도',      range: '적정 50~70%',      status: STATE_LABEL[latest.humidity_state] ?? '정상', color: STATE_COLOR[latest.humidity_state] ?? 'green' },
-    light:   { value: lightRaw,unit: 'lx',  label: '조도',      range: '적정 500~2000lx',  status: STATE_LABEL[latest.light_state]    ?? '정상', color: STATE_COLOR[latest.light_state]    ?? 'green' },
-    water:   { value: waterPct,unit: '%',   label: '수위',      range: '주의 20% 이하',    status: waterPct > 20 ? '충분' : '부족',                                           color: waterPct > 20 ? 'blue' : 'red' },
+    soil:    { value: soil,    unit: '%',   label: '토양 수분', range: '적정 40~70%',      status: soil >= 40 && soil <= 70 ? '정상' : soil < 40 ? '부족' : '과습',       color: soil >= 40 && soil <= 70 ? 'green' : soil < 40 ? 'orange' : 'blue' },
+    co2:     { value: co2,     unit: 'ppm', label: 'CO₂',      range: '적정 400~1000ppm', status: STATE_LABEL[st.co2]       ?? '정상', color: STATE_COLOR[st.co2]       ?? 'green' },
+    temp:    { value: temp,    unit: '°C',  label: '온도',      range: '적정 18~28°C',     status: STATE_LABEL[st.temp]      ?? '정상', color: STATE_COLOR[st.temp]      ?? 'green' },
+    humidity:{ value: hum,     unit: '%',   label: '습도',      range: '적정 50~70%',      status: STATE_LABEL[st.humidity]  ?? '정상', color: STATE_COLOR[st.humidity]  ?? 'green' },
+    light:   { value: lightRaw,unit: 'lx',  label: '조도',      range: '적정 500~2000lx',  status: STATE_LABEL[st.light]     ?? '정상', color: STATE_COLOR[st.light]     ?? 'green' },
+    water:   { value: waterPct,unit: '%',   label: '수위',      range: '주의 20% 이하',    status: waterPct > 20 ? '충분' : '부족',                                        color: waterPct > 20 ? 'blue' : 'red' },
   }
 
   // ── 홈 상태바 ──
   const co2Fill  = co2 < 800 ? 80 : co2 < 1200 ? 40 : 20
   const co2Color = co2 < 800 ? 'green' : co2 < 1200 ? 'orange' : 'red'
   const lightFill = Math.min(95, Math.round(lightRaw / 20))
-  const thOk     = latest.temp_state === 'NORMAL' && latest.humidity_state === 'NORMAL'
+  const thOk     = st.temp === 'NORMAL' && st.humidity === 'NORMAL'
 
   const statusBars = [
     {
@@ -89,11 +94,11 @@ function transformRecords(records) {
     },
     {
       key: 'sun', icon: '☀️', label: '햇빛',
-      fill: lightFill, color: STATE_COLOR[latest.light_state] ?? 'green',
-      text: latest.light_state === 'NORMAL' ? '딱 좋아요' : latest.light_state === 'LOW' ? '어두워요' : '너무 밝아요',
-      detail: latest.light_state === 'NORMAL'
+      fill: lightFill, color: STATE_COLOR[st.light] ?? 'green',
+      text: st.light === 'NORMAL' ? '딱 좋아요' : st.light === 'LOW' ? '어두워요' : '너무 밝아요',
+      detail: st.light === 'NORMAL'
         ? '지금 밝기가 딱 맞아요. 이대로 유지해 주세요.'
-        : latest.light_state === 'LOW'
+        : st.light === 'LOW'
         ? '빛이 부족해요. LED를 켜거나 창 가까이 옮겨주세요.'
         : '빛이 너무 강해요. 직사광선을 피해주세요.',
     },
@@ -103,7 +108,7 @@ function transformRecords(records) {
       text: thOk ? '쾌적해요' : '주의',
       detail: thOk
         ? '따로 신경 쓰지 않아도 괜찮아요. AI가 관리하고 있어요.'
-        : `온도 ${latest.temp_state === 'NORMAL' ? '정상' : latest.temp_state} / 습도 ${latest.humidity_state === 'NORMAL' ? '정상' : latest.humidity_state}. 조절이 필요해요.`,
+        : `온도 ${st.temp === 'NORMAL' ? '정상' : st.temp} / 습도 ${st.humidity === 'NORMAL' ? '정상' : st.humidity}. 조절이 필요해요.`,
     },
     {
       key: 'water', icon: '≋', label: '물통 수위',
@@ -117,16 +122,16 @@ function transformRecords(records) {
     },
   ]
 
-  // ── 기기 상태 (autoMode용 초기값) ──
+  // ── 기기 상태 ──
   const isOn = (v) => v === '1' || v === 1
   const deviceStates = [
-    isOn(latest.fan1),
-    isOn(latest.fan2),
-    isOn(latest.window1),
-    isOn(latest.window2),
-    isOn(latest.led),
-    isOn(latest.humidifier),
-    isOn(latest.heater),
+    isOn(a.fan1),
+    isOn(a.fan2),
+    isOn(a.window1),
+    isOn(a.window2),
+    isOn(a.led),
+    isOn(a.humidifier),
+    isOn(a.heater),
   ]
 
   // ── 차트 데이터 ──
@@ -134,33 +139,34 @@ function transformRecords(records) {
     const d = new Date(ts)
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
   }
+  const getSensor = (r, key) => { const s = r.sensors ?? r; return s[key] }
   const chartData = {
-    soil:     records.map(r => ({ t: toTime(r.timestamp), v: parseInt(r.soil_percent) })),
-    co2:      records.map(r => ({ t: toTime(r.timestamp), v: parseInt(r.co2_raw) })),
-    temp:     records.map(r => ({ t: toTime(r.timestamp), v: parseFloat(r.temp1) })),
-    humidity: records.map(r => ({ t: toTime(r.timestamp), v: parseFloat(r.hum1) })),
-    light:    records.map(r => ({ t: toTime(r.timestamp), v: parseInt(r.light_raw) })),
-    water:    records.map(r => ({ t: toTime(r.timestamp), v: Math.min(100, Math.round(parseInt(r.water_raw) / 1023 * 100)) })),
+    soil:     records.map(r => ({ t: toTime(r.timestamp), v: parseInt(getSensor(r, 'soil_percent')) })),
+    co2:      records.map(r => ({ t: toTime(r.timestamp), v: parseInt(getSensor(r, 'co2_raw')) })),
+    temp:     records.map(r => ({ t: toTime(r.timestamp), v: parseFloat(getSensor(r, 'temp1')) })),
+    humidity: records.map(r => ({ t: toTime(r.timestamp), v: parseFloat(getSensor(r, 'hum1')) })),
+    light:    records.map(r => ({ t: toTime(r.timestamp), v: parseInt(getSensor(r, 'light_raw')) })),
+    water:    records.map(r => ({ t: toTime(r.timestamp), v: Math.min(100, Math.round(parseInt(getSensor(r, 'water_raw')) / 1023 * 100)) })),
   }
 
   // ── 센서 기록 테이블 (최근 10개, 최신순) ──
   const logRows = [...records].reverse().slice(0, 10).map(r => ({
     time:     toTime(r.timestamp),
-    temp:     `${parseFloat(r.temp1).toFixed(1)}°C`,
-    hum:      `${parseFloat(r.hum1).toFixed(0)}%`,
-    soil:     `${r.soil_percent}%`,
-    soilNum:  parseInt(r.soil_percent),
-    co2:      parseInt(r.co2_raw),
-    light:    parseInt(r.light_raw),
-    water:    `${Math.min(100, Math.round(parseInt(r.water_raw) / 1023 * 100))}%`,
+    temp:     `${parseFloat(getSensor(r, 'temp1')).toFixed(1)}°C`,
+    hum:      `${parseFloat(getSensor(r, 'hum1')).toFixed(0)}%`,
+    soil:     `${getSensor(r, 'soil_percent')}%`,
+    soilNum:  parseInt(getSensor(r, 'soil_percent')),
+    co2:      parseInt(getSensor(r, 'co2_raw')),
+    light:    parseInt(getSensor(r, 'light_raw')),
+    water:    `${Math.min(100, Math.round(parseInt(getSensor(r, 'water_raw')) / 1023 * 100))}%`,
   }))
 
   // ── 홈 식물 요약 ──
   const issues = []
-  if (soil < 40)  issues.push('물이 부족해요')
-  if (co2 > 1000) issues.push('공기가 탁해요')
-  if (latest.temp_state     !== 'NORMAL') issues.push('온도가 불안정해요')
-  if (latest.humidity_state !== 'NORMAL') issues.push('습도를 조절해야 해요')
+  if (soil < 40)         issues.push('물이 부족해요')
+  if (co2 > 1000)        issues.push('공기가 탁해요')
+  if (st.temp     !== 'NORMAL') issues.push('온도가 불안정해요')
+  if (st.humidity !== 'NORMAL') issues.push('습도를 조절해야 해요')
 
   const plantSummary = {
     title:    issues.length === 0 ? '잘 자라고 있어요' : issues.length === 1 ? '조금 신경 써야 해요' : '조금 힘들어하고 있어요',
@@ -211,13 +217,13 @@ const TABS = [
 ]
 
 const DEVICE_META = [
-  { icon: '☴',  name: '환기팬 1', sub: '흡기', type: 'on-off',    autoDescOn: '신선한 공기를 안으로 들이는 중', autoDescOff: '지금은 환기가 필요 없어요' },
-  { icon: '☴',  name: '환기팬 2', sub: '배기', type: 'on-off',    autoDescOn: '탁한 공기를 밖으로 내보내는 중', autoDescOff: '지금은 환기가 필요 없어요' },
-  { icon: '▬',  name: '창문 1',   sub: '앞면', type: 'open-close',autoDescOn: '환기를 위해 열어뒀어요',          autoDescOff: '지금은 닫아두는 게 더 나아요' },
-  { icon: '▬',  name: '창문 2',   sub: '뒷면', type: 'open-close',autoDescOn: '환기를 위해 열어뒀어요',          autoDescOff: '지금은 닫아두는 게 더 나아요' },
-  { icon: '💡', name: '식물 LED', sub: '',     type: 'on-off',    autoDescOn: '잘 자랄 수 있게 빛을 켜줬어요',   autoDescOff: '지금은 자연광으로 충분해요' },
-  { icon: '☁',  name: '가습기',   sub: '',     type: 'on-off',    autoDescOn: '습도를 높이는 중이에요',           autoDescOff: '지금 습도가 딱 좋아서 쉬는 중' },
-  { icon: '🔥', name: '히터',     sub: '',     type: 'on-off',    autoDescOn: '온도를 높이는 중이에요',           autoDescOff: '지금 온도가 딱 좋아서 쉬는 중' },
+  { icon: '☴',  name: 'fan 1',    sub: '흡기', type: 'on-off',    autoDescOn: '신선한 공기를 안으로 들이는 중', autoDescOff: '지금은 환기가 필요 없어요' },
+  { icon: '☴',  name: 'fan 2',    sub: '배기', type: 'on-off',    autoDescOn: '탁한 공기를 밖으로 내보내는 중', autoDescOff: '지금은 환기가 필요 없어요' },
+  { icon: '▬',  name: 'window 1', sub: '앞면', type: 'open-close',autoDescOn: '환기를 위해 열어뒀어요',          autoDescOff: '지금은 닫아두는 게 더 나아요' },
+  { icon: '▬',  name: 'window 2', sub: '뒷면', type: 'open-close',autoDescOn: '환기를 위해 열어뒀어요',          autoDescOff: '지금은 닫아두는 게 더 나아요' },
+  { icon: '💡', name: 'grow_led', sub: '',     type: 'on-off',    autoDescOn: '잘 자랄 수 있게 빛을 켜줬어요',   autoDescOff: '지금은 자연광으로 충분해요' },
+  { icon: '☁',  name: 'humid',    sub: '',     type: 'on-off',    autoDescOn: '습도를 높이는 중이에요',           autoDescOff: '지금 습도가 딱 좋아서 쉬는 중' },
+  { icon: '🔥', name: 'heater',   sub: '',     type: 'on-off',    autoDescOn: '온도를 높이는 중이에요',           autoDescOff: '지금 온도가 딱 좋아서 쉬는 중' },
 ]
 
 // ── 색상 팔레트 ───────────────────────────────────────────────────────────────
@@ -232,11 +238,356 @@ function chartColor(tab) {
   return { soil: '#f97316', co2: '#ef4444', temp: '#22c55e', humidity: '#22c55e', light: '#22c55e', water: '#3b82f6' }[tab] ?? '#6b7280'
 }
 
+// ── TrainModal ────────────────────────────────────────────────────────────────
+function TrainModal({ trainStatus, onClose, onTrainDone }) {
+  const [excludeManual, setExcludeManual] = useState(false)
+  const [ranges, setRanges]               = useState([])
+  const [preview, setPreview]             = useState(null)
+  const [isPreviewing, setIsPreviewing]   = useState(false)
+  const [isTraining, setIsTraining]       = useState(false)
+  const [result, setResult]               = useState(null)
+
+  const H = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' }
+
+  const addRange    = () => setRanges(r => [...r, { start: '', end: '' }])
+  const removeRange = (i) => setRanges(r => r.filter((_, j) => j !== i))
+  const updateRange = (i, field, val) =>
+    setRanges(r => r.map((item, j) => j === i ? { ...item, [field]: val } : item))
+
+  const validRanges = ranges.filter(r => r.start && r.end)
+
+  // 설정 바뀔 때마다 500ms 후 자동 미리보기
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      setIsPreviewing(true)
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/train-preview`, {
+          method: 'POST', headers: H,
+          body: JSON.stringify({ exclude_manual: excludeManual, exclude_ranges: validRanges }),
+        })
+        if (!res.ok) return   // 404 / 422 등 HTTP 에러 → 무시
+        const d = await res.json()
+        if (d.ok !== false && d.total !== undefined) setPreview(d)
+      } catch { /* 연결 안 됐을 때 조용히 무시 */ }
+      finally { setIsPreviewing(false) }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [excludeManual, JSON.stringify(validRanges)])
+
+  const handleTrain = async () => {
+    setIsTraining(true)
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/train`, {
+        method: 'POST', headers: H,
+        body: JSON.stringify({ exclude_manual: excludeManual, exclude_ranges: validRanges }),
+      })
+      const d = await res.json()
+      setResult(d)
+      onTrainDone()
+    } catch (e) { console.error(e) }
+    finally { setIsTraining(false) }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+      <div style={{ background: '#fff', borderRadius: '20px 20px 0 0', width: '100%', maxWidth: 480, padding: '24px 20px 36px', maxHeight: '90vh', overflowY: 'auto' }}>
+
+        {/* 헤더 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>🧠 모델 재학습 설정</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#9ca3af' }}>✕</button>
+        </div>
+
+        {/* 완료 상태 */}
+        {result && (
+          <div style={{ background: '#f0fdf4', borderRadius: 12, padding: '14px 16px', marginBottom: 16, border: '1px solid #bbf7d0' }}>
+            <div style={{ fontWeight: 600, color: '#16a34a', marginBottom: 4 }}>✅ 학습 완료!</div>
+            <div style={{ color: '#374151', fontSize: 13 }}>
+              학습 데이터 {preview?.will_train ?? '-'}건으로 재학습되었습니다.
+            </div>
+            <button onClick={onClose} style={{ marginTop: 12, width: '100%', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 10, padding: '10px', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>닫기</button>
+          </div>
+        )}
+
+        {!result && (<>
+          {/* 현재 데이터 현황 */}
+          <div style={{ background: '#f9fafb', borderRadius: 12, padding: '12px 14px', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, color: '#6b7280', marginBottom: 6 }}>현재 수집 데이터</div>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div><span style={{ fontWeight: 700, fontSize: 18 }}>{trainStatus.total}</span><span style={{ color: '#6b7280', fontSize: 12, marginLeft: 3 }}>전체</span></div>
+              <div><span style={{ fontWeight: 700, fontSize: 18, color: '#2563eb' }}>{trainStatus.manual}</span><span style={{ color: '#6b7280', fontSize: 12, marginLeft: 3 }}>수동 제어</span></div>
+              <div><span style={{ fontWeight: 700, fontSize: 18, color: '#9ca3af' }}>{trainStatus.total - trainStatus.manual}</span><span style={{ color: '#6b7280', fontSize: 12, marginLeft: 3 }}>자동</span></div>
+            </div>
+          </div>
+
+          {/* 수동 제어 제외 */}
+          <div
+            onClick={() => { setExcludeManual(v => !v); setPreview(null) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', background: excludeManual ? '#eff6ff' : '#f9fafb', borderRadius: 12, cursor: 'pointer', marginBottom: 12, border: `1px solid ${excludeManual ? '#bfdbfe' : '#e5e7eb'}`, transition: 'all 0.15s' }}
+          >
+            <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${excludeManual ? '#2563eb' : '#d1d5db'}`, background: excludeManual ? '#2563eb' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}>
+              {excludeManual && <span style={{ color: '#fff', fontSize: 13, lineHeight: 1 }}>✓</span>}
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 14, color: excludeManual ? '#1d4ed8' : '#1c1c1e' }}>수동 제어 구간 제외</div>
+              <div style={{ color: '#6b7280', fontSize: 12, marginTop: 1 }}>사용자가 직접 조작한 {trainStatus.manual}건을 학습에서 뺍니다</div>
+            </div>
+          </div>
+
+          {/* 시간 범위 제외 */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 8 }}>시간 범위 제외</div>
+            {ranges.map((r, i) => (
+              <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                <input
+                  type="datetime-local" value={r.start}
+                  onChange={e => { updateRange(i, 'start', e.target.value); setPreview(null) }}
+                  style={{ flex: 1, padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+                />
+                <span style={{ color: '#9ca3af', fontSize: 13 }}>~</span>
+                <input
+                  type="datetime-local" value={r.end}
+                  onChange={e => { updateRange(i, 'end', e.target.value); setPreview(null) }}
+                  style={{ flex: 1, padding: '8px 10px', border: '1px solid #e5e7eb', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+                />
+                <button onClick={() => { removeRange(i); setPreview(null) }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 18, padding: '0 4px' }}>✕</button>
+              </div>
+            ))}
+            <button
+              onClick={addRange}
+              style={{ width: '100%', background: 'none', border: '1px dashed #d1d5db', borderRadius: 10, padding: '9px', fontSize: 13, color: '#6b7280', cursor: 'pointer', fontFamily: 'inherit' }}
+            >
+              + 구간 추가
+            </button>
+          </div>
+
+          {/* 학습 데이터 미리보기 — 항상 표시, 설정 바뀌면 자동 갱신 */}
+          <div style={{ background: preview && preview.will_train < 10 ? '#fef2f2' : '#f0fdf4', borderRadius: 12, padding: '12px 14px', marginBottom: 12, border: `1px solid ${preview && preview.will_train < 10 ? '#fecaca' : '#bbf7d0'}`, transition: 'all 0.2s' }}>
+            <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              학습 데이터 미리보기
+              {isPreviewing && <span style={{ color: '#9ca3af' }}>계산 중…</span>}
+            </div>
+            {preview ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#374151' }}>{preview.total}</div>
+                    <div style={{ color: '#9ca3af', fontSize: 11 }}>전체</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#ef4444' }}>−{preview.excluded}</div>
+                    <div style={{ color: '#9ca3af', fontSize: 11 }}>제외</div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontWeight: 700, fontSize: 18, color: '#16a34a' }}>{preview.will_train}</div>
+                    <div style={{ color: '#9ca3af', fontSize: 11 }}>학습 예정</div>
+                  </div>
+                </div>
+                {/* 제외 항목 상세 */}
+                {preview.excluded > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#6b7280', borderTop: '1px solid #e5e7eb', paddingTop: 8 }}>
+                    {excludeManual && <div>· 수동 제어 데이터 {trainStatus.manual}건 제외</div>}
+                    {validRanges.map((r, i) => (
+                      <div key={i}>· {r.start.replace('T', ' ')} ~ {r.end.replace('T', ' ')} 구간 제외</div>
+                    ))}
+                  </div>
+                )}
+                {preview.will_train < 10 && (
+                  <div style={{ color: '#dc2626', fontSize: 12, marginTop: 6 }}>⚠ 데이터가 너무 적습니다 (최소 10건 필요)</div>
+                )}
+              </>
+            ) : (
+              <div style={{ color: '#9ca3af', fontSize: 13 }}>서버 연결 후 자동으로 표시됩니다</div>
+            )}
+          </div>
+
+          {/* 버튼 */}
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button
+              onClick={handleTrain}
+              disabled={isTraining || isPreviewing || (preview && preview.will_train < 10)}
+              style={{ flex: 1, background: isTraining ? '#93c5fd' : '#2563eb', color: '#fff', border: 'none', borderRadius: 12, padding: '12px', fontSize: 14, fontWeight: 600, cursor: isTraining ? 'default' : 'pointer', fontFamily: 'inherit' }}
+            >
+              {isTraining ? '학습 중…' : '재학습 시작'}
+            </button>
+          </div>
+        </>)}
+      </div>
+    </div>
+  )
+}
+
+// ── ModelVersionPanel ─────────────────────────────────────────────────────────
+function ModelVersionPanel({ currentVersion, onRollback }) {
+  const [versions, setVersions]   = useState([])
+  const [expanded, setExpanded]   = useState(false)
+  const [rolling, setRolling]     = useState(null)   // 롤백 중인 version string
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/model-versions`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+      .then(r => r.json())
+      .then(d => setVersions(d.versions ?? []))
+      .catch(() => {})
+  }, [currentVersion])
+
+  const handleRollback = async (version) => {
+    if (!window.confirm(`${version}으로 롤백할까요?`)) return
+    setRolling(version)
+    try {
+      await fetch(`${API_BASE_URL}/api/model-rollback`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+        body: JSON.stringify({ version }),
+      })
+      onRollback(version)
+      setVersions(v => v)   // 재렌더
+    } catch (e) { console.error(e) }
+    finally { setRolling(null) }
+  }
+
+  const fmtDate = (s) => s ? new Date(s).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
+  const avgAcc  = (acc) => {
+    const vals = Object.values(acc ?? {})
+    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) : null
+  }
+
+  return (
+    <div style={{ background: '#f9fafb', borderRadius: 12, padding: '12px 14px', marginTop: 10, border: '1px solid #e5e7eb' }}>
+      <div
+        onClick={() => versions.length > 0 && setExpanded(v => !v)}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: versions.length > 0 ? 'pointer' : 'default' }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+          📦 모델 버전 기록 ({versions.length}개)
+        </div>
+        {versions.length > 0
+          ? <span style={{ color: '#9ca3af', fontSize: 12 }}>{expanded ? '▲ 접기' : '▼ 펼치기'}</span>
+          : <span style={{ color: '#d1d5db', fontSize: 12 }}>재학습 후 생성됩니다</span>
+        }
+      </div>
+
+      {expanded && versions.length > 0 && (
+        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {versions.map((v) => {
+            const isCurrent = v.version === currentVersion
+            const acc = avgAcc(v.train_acc)
+            return (
+              <div
+                key={v.version}
+                style={{ background: isCurrent ? '#eff6ff' : '#fff', borderRadius: 10, padding: '10px 12px', border: `1px solid ${isCurrent ? '#bfdbfe' : '#e5e7eb'}` }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontWeight: 700, fontSize: 14, color: isCurrent ? '#1d4ed8' : '#1c1c1e' }}>
+                      {v.version}
+                    </span>
+                    {isCurrent && (
+                      <span style={{ marginLeft: 6, fontSize: 11, background: '#2563eb', color: '#fff', borderRadius: 99, padding: '1px 7px' }}>현재</span>
+                    )}
+                  </div>
+                  {!isCurrent && (
+                    <button
+                      onClick={() => handleRollback(v.version)}
+                      disabled={rolling === v.version}
+                      style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: 8, padding: '4px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}
+                    >
+                      {rolling === v.version ? '…' : '롤백'}
+                    </button>
+                  )}
+                </div>
+                <div style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>
+                  {fmtDate(v.trained_at)} · 데이터 {v.data_count}건
+                  {acc !== null && ` · 평균 정확도 ${acc}%`}
+                  {v.exclude_manual && ' · 수동제외'}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Home page ─────────────────────────────────────────────────────────────────
 function HomePage({ data, onGoSensor }) {
-  const [autoMode, setAutoMode] = useState(true)
-  const [watered, setWatered]   = useState(false)
-  const [expanded, setExpanded] = useState(null)
+  const [controlMode, setControlMode] = useState('auto') // 'auto' | 'ai'
+  const [watered, setWatered]         = useState(false)
+  const [expanded, setExpanded]       = useState(null)
+  const [trainStatus, setTrainStatus] = useState({ total: 0, manual: 0, lastTrained: null, modelExists: false })
+  const [showTrainModal, setShowTrainModal] = useState(false)
+  const [currentVersion, setCurrentVersion] = useState(null)
+
+  // ── 타이머 ────────────────────────────────────────────────────────────────
+  const [activeTimers,  setActiveTimers]  = useState([])   // 서버 원본 (5초 동기화)
+  const [displayTimers, setDisplayTimers] = useState([])   // 1초 카운트다운용 로컬 복사
+  const [timerPanels,   setTimerPanels]   = useState({})   // device → { mode, duration, onTime, offTime }
+
+  const H = { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' }
+
+  const refreshTimers = () => {
+    fetch(`${API_BASE_URL}/api/timers`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+      .then(r => r.json())
+      .then(d => setActiveTimers(d.timers ?? []))
+      .catch(() => {})
+  }
+
+  // 서버 5초 동기화
+  useEffect(() => {
+    refreshTimers()
+    const id = setInterval(refreshTimers, 5000)
+    return () => clearInterval(id)
+  }, [])
+
+  // 서버 데이터가 바뀌면 displayTimers 즉시 반영
+  useEffect(() => { setDisplayTimers(activeTimers) }, [activeTimers])
+
+  // 1초마다 ends_at / off_at 기준으로 남은 시간 재계산
+  useEffect(() => {
+    const id = setInterval(() => {
+      setDisplayTimers(prev => prev.map(t => {
+        const now = Date.now()
+        if (t.type === 'duration' && t.ends_at && t.status === 'running') {
+          return { ...t, remaining_seconds: Math.max(0, Math.floor((new Date(t.ends_at) - now) / 1000)) }
+        }
+        if (t.type === 'schedule' && t.status === 'on' && t.off_at) {
+          return { ...t, remaining_seconds: Math.max(0, Math.floor((new Date(t.off_at) - now) / 1000)) }
+        }
+        if (t.type === 'schedule' && t.status === 'waiting' && t.on_at) {
+          return { ...t, remaining_until_on: Math.max(0, Math.floor((new Date(t.on_at) - now) / 1000)) }
+        }
+        return t
+      }))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const toggleTimerPanel = (device) => {
+    setTimerPanels(prev => ({
+      ...prev,
+      [device]: prev[device] ? null : { mode: 'duration', duration: '10', onTime: '', offTime: '' },
+    }))
+  }
+
+  const sendTimer = async (device) => {
+    const panel = timerPanels[device]
+    if (!panel) return
+    const body = panel.mode === 'duration'
+      ? { device, timer_type: 'duration', duration_minutes: parseInt(panel.duration) || 10 }
+      : { device, timer_type: 'schedule', on_time: panel.onTime, off_time: panel.offTime }
+    try {
+      await fetch(`${API_BASE_URL}/api/timer`, { method: 'POST', headers: H, body: JSON.stringify(body) })
+      setTimerPanels(prev => ({ ...prev, [device]: null }))
+      refreshTimers()
+    } catch (e) { console.error(e) }
+  }
+
+  const cancelTimer = async (timerId) => {
+    try {
+      await fetch(`${API_BASE_URL}/api/timer/${timerId}`, { method: 'DELETE', headers: { 'ngrok-skip-browser-warning': '1' } })
+      refreshTimers()
+    } catch (e) { console.error(e) }
+  }
 
   // 기기 상태: 백엔드 데이터로 초기화, 수동 모드에서 사용자가 변경 가능
   const [devOnState, setDevOnState] = useState(() => data?.deviceStates ?? [true, true, false, false, true, false, false])
@@ -244,23 +595,62 @@ function HomePage({ data, onGoSensor }) {
     if (data?.deviceStates) setDevOnState(data.deviceStates)
   }, [data])
 
+  // 학습 현황 조회
+  const refreshTrainStatus = () => {
+    fetch(`${API_BASE_URL}/api/train-status`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+      .then(r => r.json())
+      .then(d => setTrainStatus({ total: d.total ?? 0, manual: d.manual ?? 0, lastTrained: d.last_trained ?? null, modelExists: d.model_exists ?? false }))
+      .catch(() => {})
+    fetch(`${API_BASE_URL}/api/model-versions`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+      .then(r => r.json())
+      .then(d => setCurrentVersion(d.current ?? null))
+      .catch(() => {})
+  }
+
+  useEffect(() => { refreshTrainStatus() }, [])
+
+  const changeMode = (mode) => {
+    setControlMode(mode)
+    fetch(`${API_BASE_URL}/api/mode`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+      body: JSON.stringify({ mode }),
+    }).catch(console.error)
+  }
+
   const toggleDevice = (idx, val) => {
     setDevOnState(prev => prev.map((v, i) => i === idx ? val : v))
-    // TODO: POST `${API_BASE_URL}/api/control` with { device: DEVICE_META[idx].name, state: val }
+    fetch(`${API_BASE_URL}/api/control`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'ngrok-skip-browser-warning': '1' },
+      body: JSON.stringify({ device: DEVICE_META[idx].name, state: val }),
+    }).catch(console.error)
   }
+
+  const autoMode = controlMode === 'auto'
+  const aiMode   = controlMode === 'ai'
 
   const { statusBars, plantSummary } = data ?? {
     statusBars:   [],
     plantSummary: { title: '불러오는 중…', subtitle: '' },
   }
 
-  const needsWater = data?.latest && parseInt(data.latest.soil_percent) < 40
-  const needsVent  = data?.latest && parseInt(data.latest.co2_raw) > 1000
+  const needsWater = data?.latest && parseInt((data.latest.sensors ?? data.latest).soil_percent) < 40
+  const needsVent  = data?.latest && parseInt((data.latest.sensors ?? data.latest).co2_raw) > 1000
   const fan1On     = devOnState[0]
   const fan2On     = devOnState[1]
 
   return (
     <div style={{ maxWidth: 480, margin: '0 auto', padding: '0 0 40px' }}>
+
+      {/* TrainModal */}
+      {showTrainModal && (
+        <TrainModal
+          trainStatus={trainStatus}
+          onClose={() => setShowTrainModal(false)}
+          onTrainDone={() => { refreshTrainStatus(); setShowTrainModal(false) }}
+        />
+      )}
 
       {/* ── Plant Header ── */}
       <div style={{ padding: '20px 20px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -359,64 +749,254 @@ function HomePage({ data, onGoSensor }) {
       {/* ── AI / 수동 제어 섹션 ── */}
       <div style={{ padding: '20px 16px 0' }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 10 }}>
-          {autoMode ? 'AI가 알아서 하고 있어요' : '직접 제어 중'}
+          {controlMode === 'auto' ? 'AI가 알아서 하고 있어요' : 'AI 모델이 제어 중'}
         </div>
 
-        {!autoMode && (
-          <div style={{ background: '#fff7ed', borderRadius: 14, padding: '14px 16px', marginBottom: 10, display: 'flex', alignItems: 'flex-start', gap: 10, border: '1px solid #fed7aa' }}>
-            <span style={{ fontSize: 18 }}>⚠️</span>
-            <div>
-              <div style={{ fontWeight: 600, fontSize: 14, color: '#c2410c' }}>AI 자동 제어가 꺼져 있어요</div>
-              <div style={{ color: '#9a3412', fontSize: 12, marginTop: 2 }}>구동부를 직접 조작하고 있어요 · 주의해서 사용하세요</div>
+        {/* AI 모드 카드 */}
+        {controlMode === 'ai' && (
+          <div style={{ background: '#eff6ff', borderRadius: 14, padding: '14px 16px', marginBottom: 10, border: '1px solid #bfdbfe' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div>
+                <div style={{ fontWeight: 600, fontSize: 14, color: '#1d4ed8' }}>🧠 학습 모델 제어 중</div>
+                <div style={{ color: '#3b82f6', fontSize: 12, marginTop: 2 }}>
+                  수집 데이터 {trainStatus.total}개 (수동 {trainStatus.manual}개)
+                  {currentVersion && <span style={{ marginLeft: 6, background: '#2563eb', color: '#fff', borderRadius: 99, padding: '1px 7px', fontSize: 11 }}>{currentVersion}</span>}
+                </div>
+                {trainStatus.lastTrained && (
+                  <div style={{ color: '#6b7280', fontSize: 11, marginTop: 2 }}>
+                    마지막 학습: {new Date(trainStatus.lastTrained).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+                {!trainStatus.modelExists && (
+                  <div style={{ color: '#dc2626', fontSize: 11, marginTop: 2 }}>⚠ 학습된 모델 없음 — 재학습 필요</div>
+                )}
+              </div>
+              <button
+                onClick={() => setShowTrainModal(true)}
+                style={{ background: '#2563eb', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}
+              >
+                재학습
+              </button>
             </div>
+            <ModelVersionPanel
+              currentVersion={currentVersion}
+              onRollback={(v) => { setCurrentVersion(v); refreshTrainStatus() }}
+            />
           </div>
         )}
 
         <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.08)' }}>
 
-          {/* 자동/수동 토글 */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f3f4f6', background: autoMode ? '#fff' : '#fff7ed' }}>
-            <span style={{ fontSize: 18, marginRight: 10 }}>{autoMode ? '🤖' : '🔧'}</span>
+          {/* 모드 선택 */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
+            <span style={{ fontSize: 18, marginRight: 10 }}>
+              {controlMode === 'auto' ? '🤖' : '🧠'}
+            </span>
             <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{autoMode ? '자동 모드' : '수동 모드'}</div>
-              <div style={{ color: '#9ca3af', fontSize: 12 }}>{autoMode ? 'AI가 센서를 보고 알아서 제어해요' : 'AI 자동 제어 꺼짐 · 직접 조작하세요'}</div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 12, color: autoMode ? '#16a34a' : '#9ca3af', fontWeight: 500 }}>자동</span>
-              <div onClick={() => setAutoMode(v => !v)} style={{ width: 44, height: 24, borderRadius: 12, cursor: 'pointer', position: 'relative', background: autoMode ? '#22c55e' : '#f97316', transition: 'background 0.2s' }}>
-                <div style={{ position: 'absolute', top: 2, left: autoMode ? 22 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', transition: 'left 0.2s' }} />
+              <div style={{ fontWeight: 600, fontSize: 14 }}>
+                {controlMode === 'auto' ? '자동 모드' : 'AI 모드'}
               </div>
-              <span style={{ fontSize: 12, color: autoMode ? '#9ca3af' : '#c2410c', fontWeight: 500 }}>수동</span>
+              <div style={{ color: '#9ca3af', fontSize: 12 }}>
+                {controlMode === 'auto' ? '규칙 기반으로 센서를 보고 알아서 제어해요' : '학습된 모델이 최적 제어를 판단해요 · 직접 조작도 가능해요'}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {[['auto', '자동'], ['ai', 'AI']].map(([mode, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => changeMode(mode)}
+                  style={{
+                    padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    background: controlMode === mode ? (mode === 'ai' ? '#2563eb' : '#22c55e') : '#f3f4f6',
+                    color: controlMode === mode ? '#fff' : '#6b7280',
+                    transition: 'background 0.15s',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
 
           {/* 기기 목록 */}
           {DEVICE_META.map((meta, i) => {
-            const isOn   = devOnState[i] ?? false
-            const onLbl  = meta.type === 'open-close' ? '열기' : '켜기'
-            const offLbl = meta.type === 'open-close' ? '닫기' : '끄기'
+            const isOn       = devOnState[i] ?? false
+            const onLbl      = meta.type === 'open-close' ? '열기' : '켜기'
+            const offLbl     = meta.type === 'open-close' ? '닫기' : '끄기'
             const statusLbl  = meta.type === 'open-close' ? (isOn ? '열림' : '닫힘') : (isOn ? '켜짐' : '대기')
             const badgeBg    = (statusLbl === '켜짐' || statusLbl === '열림') ? '#dcfce7' : '#f3f4f6'
             const badgeText  = (statusLbl === '켜짐' || statusLbl === '열림') ? '#16a34a' : '#9ca3af'
             const autoDesc   = isOn ? meta.autoDescOn : meta.autoDescOff
             const manualDesc = isOn ? `사용자가 ${onLbl.slice(0, -1)}줬어요` : `사용자가 ${offLbl}어요`
 
+            const devTimers  = displayTimers.filter(t => t.device === meta.name)
+            const panel      = timerPanels[meta.name]
+            const panelOpen  = !!panel
+
+            const fmtSec = (sec) => {
+              if (sec == null) return ''
+              const h = Math.floor(sec / 3600)
+              const m = Math.floor((sec % 3600) / 60)
+              const s = sec % 60
+              if (h > 0) return `${h}시간 ${m}분 후`
+              if (m > 0) return `${m}분 ${String(s).padStart(2,'0')}초 후`
+              return `${s}초 후`
+            }
+
+            // duration 타이머 진행률 (0~100)
+            const durationProgress = (t) => {
+              if (t.type !== 'duration' || !t.duration_minutes) return 0
+              const total = t.duration_minutes * 60
+              return Math.max(0, Math.min(100, Math.round((1 - t.remaining_seconds / total) * 100)))
+            }
+
+            const canSubmit = panel && (
+              panel.mode === 'duration'
+                ? parseInt(panel.duration) > 0
+                : panel.onTime && panel.offTime
+            )
+
             return (
-              <div key={i} style={{ display: 'flex', alignItems: 'center', padding: '13px 16px', borderBottom: i < DEVICE_META.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                <span style={{ fontSize: 18, marginRight: 10, width: 24, textAlign: 'center' }}>{meta.icon}</span>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 14, fontWeight: 500 }}>
-                    {meta.name}
-                    {meta.sub && <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 12, marginLeft: 4 }}>{meta.sub}</span>}
+              <div key={i} style={{ borderBottom: i < DEVICE_META.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+
+                {/* ── 메인 행 ── */}
+                <div style={{ display: 'flex', alignItems: 'center', padding: '13px 16px' }}>
+                  <span style={{ fontSize: 18, marginRight: 10, width: 24, textAlign: 'center' }}>{meta.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 14, fontWeight: 500 }}>
+                      {meta.name}
+                      {meta.sub && <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 12, marginLeft: 4 }}>{meta.sub}</span>}
+                    </div>
+                    <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 1 }}>{autoMode ? autoDesc : manualDesc}</div>
                   </div>
-                  <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 1 }}>{autoMode ? autoDesc : manualDesc}</div>
+
+                  {/* 제어 영역 */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {autoMode ? (
+                      <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: badgeBg, color: badgeText }}>{statusLbl}</span>
+                    ) : (
+                      <>
+                        <button onClick={() => toggleDevice(i, true)}  style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: isOn  ? (aiMode ? '#2563eb' : '#22c55e') : '#f3f4f6', color: isOn  ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{onLbl}</button>
+                        <button onClick={() => toggleDevice(i, false)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: !isOn ? (aiMode ? '#2563eb' : '#22c55e') : '#f3f4f6', color: !isOn ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{offLbl}</button>
+                      </>
+                    )}
+                    {/* 타이머 버튼 */}
+                    <button
+                      onClick={() => toggleTimerPanel(meta.name)}
+                      title="타이머 설정"
+                      style={{ padding: '5px 9px', borderRadius: 20, border: 'none', fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', background: panelOpen ? '#fef3c7' : '#f3f4f6', color: panelOpen ? '#d97706' : '#9ca3af', transition: 'background 0.15s' }}
+                    >⏱</button>
+                  </div>
                 </div>
-                {autoMode ? (
-                  <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: badgeBg, color: badgeText }}>{statusLbl}</span>
-                ) : (
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={() => toggleDevice(i, true)}  style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: isOn  ? '#22c55e' : '#f3f4f6', color: isOn  ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{onLbl}</button>
-                    <button onClick={() => toggleDevice(i, false)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: !isOn ? '#22c55e' : '#f3f4f6', color: !isOn ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{offLbl}</button>
+
+                {/* ── 활성 타이머 카드 ── */}
+                {devTimers.map(t => {
+                  const isDuration = t.type === 'duration'
+                  const isWaiting  = t.status === 'waiting'
+                  const isOn       = t.status === 'on'
+                  const isRunning  = t.status === 'running'
+
+                  let label = '', sublabel = '', progress = null, progressColor = '#d97706'
+
+                  if (isDuration) {
+                    if (isRunning) {
+                      progress = durationProgress(t)
+                      label    = `${fmtSec(t.remaining_seconds)} 꺼짐`
+                      sublabel = `${t.duration_minutes}분 타이머 · ${progress}% 경과`
+                      progressColor = '#d97706'
+                    } else {
+                      label = t.status === 'starting' ? '시작 중…' : t.status
+                    }
+                  } else {
+                    // schedule
+                    if (isWaiting) {
+                      label    = `${t.on_time} 켜짐 예정`
+                      sublabel = t.remaining_until_on != null ? `${fmtSec(t.remaining_until_on)} 후 시작` : ''
+                      progressColor = '#6b7280'
+                    } else if (isOn) {
+                      progress = t.remaining_seconds != null && t.on_at && t.off_at
+                        ? Math.max(0, Math.min(100, Math.round(
+                            (1 - t.remaining_seconds / ((new Date(t.off_at) - new Date(t.on_at)) / 1000)) * 100
+                          )))
+                        : null
+                      label    = `${t.off_time} 꺼짐 예정`
+                      sublabel = t.remaining_seconds != null ? `${fmtSec(t.remaining_seconds)} 후 종료` : ''
+                      progressColor = '#22c55e'
+                    } else {
+                      label = t.status
+                    }
+                  }
+
+                  return (
+                    <div key={t.id} style={{ margin: '0 16px 10px 52px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '10px 12px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: progress != null ? 8 : 0 }}>
+                        <div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#92400e' }}>⏱ {label}</span>
+                          {sublabel && <span style={{ fontSize: 11, color: '#b45309', marginLeft: 8 }}>{sublabel}</span>}
+                        </div>
+                        <button onClick={() => cancelTimer(t.id)} style={{ background: 'none', border: 'none', color: '#d97706', cursor: 'pointer', padding: '0 0 0 8px', fontSize: 14, lineHeight: 1, flexShrink: 0 }}>✕</button>
+                      </div>
+                      {progress != null && (
+                        <div style={{ height: 4, background: '#fef3c7', borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${progress}%`, background: progressColor, borderRadius: 99, transition: 'width 1s linear' }} />
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+
+                {/* ── 타이머 패널 ── */}
+                {panel && (
+                  <div style={{ margin: '0 16px 12px 52px', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 12, padding: '12px 14px' }}>
+                    {/* 모드 탭 */}
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                      {[['duration', '⏱ 타이머'], ['schedule', '📅 스케줄']].map(([m, lbl]) => (
+                        <button
+                          key={m}
+                          onClick={() => setTimerPanels(prev => ({ ...prev, [meta.name]: { ...prev[meta.name], mode: m } }))}
+                          style={{ padding: '5px 12px', borderRadius: 99, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: panel.mode === m ? '#d97706' : '#f3f4f6', color: panel.mode === m ? '#fff' : '#6b7280' }}
+                        >{lbl}</button>
+                      ))}
+                    </div>
+
+                    {panel.mode === 'duration' ? (
+                      /* 타이머 모드 */
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 13, color: '#78716c', whiteSpace: 'nowrap' }}>켠 후</span>
+                        <input
+                          type="number" min="1" max="999"
+                          value={panel.duration}
+                          onChange={e => setTimerPanels(prev => ({ ...prev, [meta.name]: { ...prev[meta.name], duration: e.target.value } }))}
+                          style={{ width: 56, padding: '6px 8px', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', textAlign: 'center' }}
+                        />
+                        <span style={{ fontSize: 13, color: '#78716c' }}>분 후 끄기</span>
+                      </div>
+                    ) : (
+                      /* 스케줄 모드 */
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, color: '#78716c', whiteSpace: 'nowrap' }}>켜기</span>
+                        <input
+                          type="time" value={panel.onTime}
+                          onChange={e => setTimerPanels(prev => ({ ...prev, [meta.name]: { ...prev[meta.name], onTime: e.target.value } }))}
+                          style={{ padding: '6px 8px', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+                        />
+                        <span style={{ fontSize: 13, color: '#78716c', whiteSpace: 'nowrap' }}>끄기</span>
+                        <input
+                          type="time" value={panel.offTime}
+                          onChange={e => setTimerPanels(prev => ({ ...prev, [meta.name]: { ...prev[meta.name], offTime: e.target.value } }))}
+                          style={{ padding: '6px 8px', border: '1px solid #fcd34d', borderRadius: 8, fontSize: 13, fontFamily: 'inherit' }}
+                        />
+                      </div>
+                    )}
+
+                    <button
+                      onClick={() => sendTimer(meta.name)}
+                      disabled={!canSubmit}
+                      style={{ marginTop: 10, width: '100%', background: canSubmit ? '#d97706' : '#e5e7eb', color: canSubmit ? '#fff' : '#9ca3af', border: 'none', borderRadius: 10, padding: '9px', fontSize: 13, fontWeight: 600, cursor: canSubmit ? 'pointer' : 'default', fontFamily: 'inherit' }}
+                    >
+                      {panel.mode === 'duration' ? `${panel.duration || '-'}분 타이머 시작` : '스케줄 설정'}
+                    </button>
                   </div>
                 )}
               </div>
@@ -557,7 +1137,9 @@ export default function App() {
 
   const fetchData = useCallback(async () => {
     try {
-      const res = await fetch(API_ENDPOINT)
+      const res = await fetch(API_ENDPOINT, {
+        headers: { 'ngrok-skip-browser-warning': '1' },
+      })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const records = await res.json()
       const transformed = transformRecords(records)
