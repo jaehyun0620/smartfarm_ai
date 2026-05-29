@@ -417,99 +417,6 @@ function TrainModal({ trainStatus, onClose, onTrainDone }) {
   )
 }
 
-// ── ModelComparePanel ─────────────────────────────────────────────────────────
-const DEVICE_KO = { fan1: '팬 1', fan2: '팬 2', window1: '창문 1', window2: '창문 2', led: 'LED', humidifier: '가습기', heater: '히터' }
-const FEATURE_KO = { temp1: '온도', hum1: '습도', soil_percent: '토양수분', light_raw: '조도', co2_raw: 'CO₂', water_raw: '수위', hour: '시간대' }
-
-function ModelComparePanel() {
-  const [info, setInfo]       = useState(null)
-  const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    fetch(`${API_BASE_URL}/api/model-info`, { headers: { 'ngrok-skip-browser-warning': '1' } })
-      .then(r => r.json())
-      .then(d => setInfo(d))
-      .catch(() => {})
-  }, [])
-
-  if (!info?.model_loaded) return null
-
-  const { comparison = {}, importances = {} } = info
-
-  // feature importance 상위 2개 반환
-  const topFeatures = (target) => {
-    const imp = importances[target]
-    if (!imp) return []
-    return Object.entries(imp)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 2)
-      .map(([f, v]) => ({ name: FEATURE_KO[f] ?? f, pct: Math.round(v * 100) }))
-  }
-
-  const targets = Object.keys(DEVICE_KO)
-  const matchCount = targets.filter(t => comparison[t]?.match).length
-
-  return (
-    <div style={{ background: '#f9fafb', borderRadius: 12, padding: '12px 14px', marginTop: 10, border: '1px solid #e5e7eb' }}>
-      <div
-        onClick={() => setExpanded(v => !v)}
-        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-      >
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-          🔍 AI가 학습한 기준 · 현재 판단
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 11, background: matchCount === targets.length ? '#dcfce7' : '#fef3c7', color: matchCount === targets.length ? '#16a34a' : '#d97706', borderRadius: 99, padding: '1px 8px' }}>
-            규칙 일치 {matchCount}/{targets.length}
-          </span>
-          <span style={{ color: '#9ca3af', fontSize: 12 }}>{expanded ? '▲ 접기' : '▼ 펼치기'}</span>
-        </div>
-      </div>
-
-      {expanded && (
-        <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {targets.map(target => {
-            const cmp  = comparison[target] ?? {}
-            const tops = topFeatures(target)
-            const match = cmp.match
-            return (
-              <div key={target} style={{ background: '#fff', borderRadius: 10, padding: '10px 12px', border: `1px solid ${match ? '#e5e7eb' : '#fecaca'}` }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontWeight: 600, fontSize: 13, color: '#1c1c1e' }}>{DEVICE_KO[target]}</span>
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span style={{ fontSize: 11, color: '#6b7280' }}>규칙</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 99, background: cmp.auto ? '#dcfce7' : '#f3f4f6', color: cmp.auto ? '#16a34a' : '#6b7280' }}>
-                      {cmp.auto ? 'ON' : 'OFF'}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#6b7280' }}>AI</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 8px', borderRadius: 99, background: cmp.ai ? '#dbeafe' : '#f3f4f6', color: cmp.ai ? '#1d4ed8' : '#6b7280' }}>
-                      {cmp.ai ? 'ON' : 'OFF'}
-                    </span>
-                    <span style={{ fontSize: 13 }}>{match ? '✓' : '✗'}</span>
-                  </div>
-                </div>
-                {tops.length > 0 && (
-                  <div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {tops.map((f, i) => (
-                      <span key={i} style={{ fontSize: 11, background: '#eff6ff', color: '#1d4ed8', borderRadius: 99, padding: '1px 8px' }}>
-                        {f.name} {f.pct}%
-                      </span>
-                    ))}
-                    <span style={{ fontSize: 11, color: '#9ca3af' }}>영향도 상위 2개</span>
-                  </div>
-                )}
-              </div>
-            )
-          })}
-          <div style={{ fontSize: 11, color: '#9ca3af', textAlign: 'center', marginTop: 4 }}>
-            센서 데이터 수신 시 자동 갱신
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ── ModelVersionPanel ─────────────────────────────────────────────────────────
 function ModelVersionPanel({ currentVersion, onRollback }) {
   const [versions, setVersions]   = useState([])
@@ -896,7 +803,6 @@ function HomePage({ data, onGoSensor }) {
                 재학습
               </button>
             </div>
-            <ModelComparePanel />
             <ModelVersionPanel
               currentVersion={currentVersion}
               onRollback={(v) => { setCurrentVersion(v); refreshTrainStatus() }}
