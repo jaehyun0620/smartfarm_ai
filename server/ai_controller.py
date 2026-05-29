@@ -144,6 +144,21 @@ class AIController:
             print(f"[AI] Compare error: {e}")
             return {}
 
+    def get_train_acc_display(self) -> dict:
+        """
+        train_acc를 UI 표시용으로 정규화.
+        구버전: {target: float}
+        신버전: {target: {"train": float, "test": float}}
+        → 항상 {"train": float, "test": float} 형태로 반환
+        """
+        result = {}
+        for target, acc in self.train_acc.items():
+            if isinstance(acc, dict):
+                result[target] = acc
+            else:
+                result[target] = {"train": acc, "test": None}
+        return result
+
     def feature_importances(self) -> dict:
         """기기별 feature importance"""
         if not self.model_loaded:

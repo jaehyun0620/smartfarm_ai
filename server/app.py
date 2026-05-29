@@ -13,7 +13,7 @@ from pydantic import BaseModel
 # ── 로컬 모듈 ──────────────────────────────────────────────────────────────────
 from serial_client import SerialClient
 from data_logger   import log_record, get_log_stats
-from model_trainer import train_models, preview_filter, list_versions, rollback_to
+from model_trainer import train_models, preview_filter, list_versions, rollback_to, get_current_version
 from ai_controller import AIController
 
 # ── 전역 상태 ──────────────────────────────────────────────────────────────────
@@ -153,7 +153,7 @@ def model_info():
 
         return {
             "model_loaded":    ai_controller.model_loaded,
-            "train_acc":       ai_controller.train_acc,
+            "train_acc":       ai_controller.get_train_acc_display(),
             "auto_rules":      AUTO_RULES,
             "comparison":      comparison,
             "importances":     importances,
@@ -229,7 +229,7 @@ def trigger_train(req: TrainRequest = None):
 def get_model_versions():
     try:
         versions = list_versions()
-        current  = versions[0]["version"] if versions else None
+        current  = get_current_version()   # model.pkl 직접 읽어서 정확한 버전 반환
         return {"versions": versions, "current": current}
     except Exception as e:
         return {"versions": [], "current": None, "error": str(e)}

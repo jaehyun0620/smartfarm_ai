@@ -9,6 +9,7 @@ from datetime import datetime
 import numpy  as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 
 LOG_PATH   = os.path.join(os.path.dirname(__file__), "farm_log.csv")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
@@ -115,18 +116,36 @@ def train_models(exclude_manual: bool = False,
         raise ValueError(f"결측값 제거 후 데이터 부족: {len(df)}개")
 
     X = df[available_features].values
+
+    # 80:20 학습/검증 분리 (데이터 20개 미만이면 분리 생략)
+    if len(df) >= 20:
+        X_train, X_test = train_test_split(X, test_size=0.2, random_state=42)
+        idx_train, idx_test = train_test_split(range(len(df)), test_size=0.2, random_state=42)
+    else:
+        X_train, X_test = X, X
+        idx_train, idx_test = list(range(len(df))), list(range(len(df)))
+
     models    = {}
     train_acc = {}
 
     for target in available_targets:
         try:
-            y   = df[target].values.astype(int)
+            y       = df[target].values.astype(int)
+            y_train = y[idx_train]
+            y_test  = y[idx_test]
+
             clf = RandomForestClassifier(n_estimators=100, random_state=42)
-            clf.fit(X, y)
-            acc = clf.score(X, y)
-            models[target]    = clf
-            train_acc[target] = round(acc, 4)
-            print(f"[Train] {target}: {acc:.2%}")
+            clf.fit(X_train, y_train)
+
+            acc_train = clf.score(X_train, y_train)
+            acc_test  = clf.score(X_test,  y_test)
+
+            models[target] = clf
+            train_acc[target] = {
+                "train": round(acc_train, 4),
+                "test":  round(acc_test,  4),
+            }
+            print(f"[Train] {target}: 학습 {acc_train:.1%} / 검증 {acc_test:.1%}")
         except Exception as e:
             print(f"[Train] {target} 학습 실패: {e}")
 
@@ -144,6 +163,8 @@ def train_models(exclude_manual: bool = False,
         "version":        version,
         "trained_at":     datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "data_count":     len(df),
+        "train_count":    len(idx_train),
+        "test_count":     len(idx_test),
         "features":       available_features,
         "exclude_manual": exclude_manual,
         "exclude_ranges": exclude_ranges or [],
@@ -185,6 +206,8 @@ def list_versions() -> list:
                 "version":        payload.get("version", f.replace(".pkl", "")),
                 "trained_at":     payload.get("trained_at", ""),
                 "data_count":     payload.get("data_count", 0),
+                "train_count":    payload.get("train_count", 0),
+                "test_count":     payload.get("test_count", 0),
                 "train_acc":      payload.get("train_acc", {}),
                 "features":       payload.get("features", FEATURES),
                 "exclude_manual": payload.get("exclude_manual", False),
@@ -194,6 +217,20 @@ def list_versions() -> list:
         except Exception as e:
             print(f"[Trainer] list_versions skip {f}: {e}")
     return result
+
+
+def get_current_version() -> str:
+    """model.pkl 에서 직접 버전 읽기 — 롤백 후에도 정확한 현재 버전 반환"""
+    if not os.path.exists(MODEL_PATH):
+        return None
+    try:
+        with open(MODEL_PATH, "rb") as f:
+            data = pickle.load(f)
+        if isinstance(data, dict):
+            return data.get("version")
+    except Exception:
+        pass
+    return None
 
 
 def rollback_to(version: str) -> bool:

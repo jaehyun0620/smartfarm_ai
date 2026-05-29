@@ -446,9 +446,20 @@ function ModelVersionPanel({ currentVersion, onRollback }) {
   }
 
   const fmtDate = (s) => s ? new Date(s).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'
-  const avgAcc  = (acc) => {
+
+  // train_acc = {target: float} 구버전 또는 {target: {train, test}} 신버전 모두 지원
+  const avgAcc = (acc) => {
     const vals = Object.values(acc ?? {})
-    return vals.length ? Math.round(vals.reduce((a, b) => a + b, 0) / vals.length * 100) : null
+    if (!vals.length) return null
+    const toNum = (v) => typeof v === 'object' ? (v.test ?? v.train ?? 0) : v
+    const avg = vals.reduce((s, v) => s + toNum(v), 0) / vals.length
+    return Math.round(avg * 100)
+  }
+  const avgTrainAcc = (acc) => {
+    const vals = Object.values(acc ?? {})
+    if (!vals.length) return null
+    const toNum = (v) => typeof v === 'object' ? (v.train ?? 0) : v
+    return Math.round(vals.reduce((s, v) => s + toNum(v), 0) / vals.length * 100)
   }
 
   return (
@@ -496,10 +507,19 @@ function ModelVersionPanel({ currentVersion, onRollback }) {
                   )}
                 </div>
                 <div style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>
-                  {fmtDate(v.trained_at)} · 데이터 {v.data_count}건
-                  {acc !== null && ` · 평균 정확도 ${acc}%`}
-                  {v.exclude_manual && ' · 수동제외'}
+                  {fmtDate(v.trained_at)} · 학습 {v.train_count || v.data_count}건 / 검증 {v.test_count || '-'}건
                 </div>
+                {avgAcc(v.train_acc) !== null && (
+                  <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                    <span style={{ fontSize: 11, background: '#dbeafe', color: '#1d4ed8', borderRadius: 99, padding: '1px 8px' }}>
+                      학습 {avgTrainAcc(v.train_acc)}%
+                    </span>
+                    <span style={{ fontSize: 11, background: avgAcc(v.train_acc) >= 80 ? '#dcfce7' : '#fef3c7', color: avgAcc(v.train_acc) >= 80 ? '#16a34a' : '#d97706', borderRadius: 99, padding: '1px 8px' }}>
+                      검증 {avgAcc(v.train_acc)}%
+                    </span>
+                    {v.exclude_manual && <span style={{ fontSize: 11, background: '#f3f4f6', color: '#6b7280', borderRadius: 99, padding: '1px 8px' }}>수동제외</span>}
+                  </div>
+                )}
               </div>
             )
           })}
