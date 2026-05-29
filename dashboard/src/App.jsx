@@ -79,18 +79,18 @@ function transformRecords(records) {
       detail: soil < 40
         ? '흙이 바짝 말랐어요. 지금 바로 물을 줘야 해요.'
         : soil > 70
-        ? '흙이 너무 축축해요. 물을 잠시 멈춰주세요.'
+        ? '흙이 너무 축축해요. 물 주기를 잠시 멈춰주세요.'
         : '흙 상태가 좋아요. 현재 수분을 유지해 주세요.',
     },
     {
       key: 'air', icon: '☴', label: '공기',
       fill: co2Fill, color: co2Color,
-      text: co2 < 800 ? '맑아요' : co2 < 1200 ? '주의' : '탁해요',
+      text: co2 < 800 ? '맑아요' : co2 < 1200 ? '주의해요' : '탁해요',
       detail: co2 < 800
         ? '공기가 맑아요. 환기 상태가 좋습니다.'
         : co2 < 1200
         ? '공기가 조금 탁해요. 환기를 권장합니다.'
-        : '숨쉬기 답답한 상태에요. AI가 환기팬을 켰어요. 창문도 열어주시면 훨씬 빨리 좋아져요.',
+        : '숨쉬기가 답답한 상태에요. AI가 환기팬을 켰어요. 창문도 열어주시면 훨씬 빨리 좋아져요.',
     },
     {
       key: 'sun', icon: '☀️', label: '햇빛',
@@ -105,7 +105,7 @@ function transformRecords(records) {
     {
       key: 'th', icon: '🌡', label: '온도·습도',
       fill: thOk ? 80 : 45, color: thOk ? 'green' : 'orange',
-      text: thOk ? '쾌적해요' : '주의',
+      text: thOk ? '쾌적해요' : '주의해요',
       detail: thOk
         ? '따로 신경 쓰지 않아도 괜찮아요. AI가 관리하고 있어요.'
         : `온도 ${st.temp === 'NORMAL' ? '정상' : st.temp} / 습도 ${st.humidity === 'NORMAL' ? '정상' : st.humidity}. 조절이 필요해요.`,
@@ -222,8 +222,8 @@ const DEVICE_META = [
   { icon: '▬',  name: 'window 1', sub: '앞면', type: 'open-close',autoDescOn: '환기를 위해 열어뒀어요',          autoDescOff: '지금은 닫아두는 게 더 나아요' },
   { icon: '▬',  name: 'window 2', sub: '뒷면', type: 'open-close',autoDescOn: '환기를 위해 열어뒀어요',          autoDescOff: '지금은 닫아두는 게 더 나아요' },
   { icon: '💡', name: 'grow_led', sub: '',     type: 'on-off',    autoDescOn: '잘 자랄 수 있게 빛을 켜줬어요',   autoDescOff: '지금은 자연광으로 충분해요' },
-  { icon: '☁',  name: 'humid',    sub: '',     type: 'on-off',    autoDescOn: '습도를 높이는 중이에요',           autoDescOff: '지금 습도가 딱 좋아서 쉬는 중' },
-  { icon: '🔥', name: 'heater',   sub: '',     type: 'on-off',    autoDescOn: '온도를 높이는 중이에요',           autoDescOff: '지금 온도가 딱 좋아서 쉬는 중' },
+  { icon: '☁',  name: 'humid',    sub: '',     type: 'on-off',    autoDescOn: '습도를 높이는 중이에요',           autoDescOff: '지금 습도가 딱 좋아서 쉬는 중이에요' },
+  { icon: '🔥', name: 'heater',   sub: '',     type: 'on-off',    autoDescOn: '온도를 높이는 중이에요',           autoDescOff: '지금 온도가 딱 좋아서 쉬는 중이에요' },
 ]
 
 // ── 색상 팔레트 ───────────────────────────────────────────────────────────────
@@ -507,7 +507,7 @@ function ModelVersionPanel({ currentVersion, onRollback }) {
                   )}
                 </div>
                 <div style={{ color: '#6b7280', fontSize: 12, marginTop: 4 }}>
-                  {fmtDate(v.trained_at)} · 학습 {v.train_count || v.data_count}건 / 검증 {v.test_count || '-'}건
+                  {fmtDate(v.trained_at)} · 학습 {v.train_count || v.data_count}건 / 검증 {v.val_count || '-'}건 / 테스트 {v.test_count || '-'}건
                 </div>
                 {avgAcc(v.train_acc) !== null && (
                   <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
@@ -848,7 +848,9 @@ function HomePage({ data, onGoSensor }) {
             const badgeBg    = (statusLbl === '켜짐' || statusLbl === '열림') ? '#dcfce7' : '#f3f4f6'
             const badgeText  = (statusLbl === '켜짐' || statusLbl === '열림') ? '#16a34a' : '#9ca3af'
             const autoDesc   = isOn ? meta.autoDescOn : meta.autoDescOff
-            const manualDesc = isOn ? `사용자가 ${onLbl.slice(0, -1)}줬어요` : `사용자가 ${offLbl}어요`
+            const manualDescOn  = meta.type === 'open-close' ? '사용자가 열었어요' : '사용자가 켰어요'
+            const manualDescOff = meta.type === 'open-close' ? '사용자가 닫았어요' : '사용자가 껐어요'
+            const manualDesc = isOn ? manualDescOn : manualDescOff
 
             const devTimers  = displayTimers.filter(t => t.device === meta.name)
             const panel      = timerPanels[meta.name]
