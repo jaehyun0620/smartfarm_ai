@@ -148,15 +148,20 @@ class AIController:
         """
         train_acc를 UI 표시용으로 정규화.
         구버전: {target: float}
-        신버전: {target: {"train": float, "test": float}}
-        → 항상 {"train": float, "test": float} 형태로 반환
+        중간버전: {target: {"train": float, "test": float}}
+        신버전: {target: {"train": float, "val": float, "test": float}}
+        → 항상 {"train", "val", "test"} 형태로 반환
         """
         result = {}
         for target, acc in self.train_acc.items():
             if isinstance(acc, dict):
-                result[target] = acc
+                result[target] = {
+                    "train": acc.get("train"),
+                    "val":   acc.get("val"),
+                    "test":  acc.get("test"),
+                }
             else:
-                result[target] = {"train": acc, "test": None}
+                result[target] = {"train": acc, "val": None, "test": None}
         return result
 
     def feature_importances(self) -> dict:

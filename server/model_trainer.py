@@ -10,6 +10,7 @@ import numpy  as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 
 LOG_PATH   = os.path.join(os.path.dirname(__file__), "farm_log.csv")
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model.pkl")
@@ -116,14 +117,24 @@ def train_models(exclude_manual: bool = False,
         raise ValueError(f"결측값 제거 후 데이터 부족: {len(df)}개")
 
     X = df[available_features].values
+    n = len(df)
 
-    # 80:20 학습/검증 분리 (데이터 20개 미만이면 분리 생략)
-    if len(df) >= 20:
-        X_train, X_test = train_test_split(X, test_size=0.2, random_state=42)
-        idx_train, idx_test = train_test_split(range(len(df)), test_size=0.2, random_state=42)
+    # ── 60 / 20 / 20 분리 ──────────────────────────────────────────────────────
+    # 데이터가 30개 미만이면 분리 생략 (소수 클래스 보호)
+    if n >= 30:
+        # 1단계: 80% train+val / 20% test
+        idx_all   = list(range(n))
+        idx_tv, idx_test = train_test_split(idx_all, test_size=0.2, random_state=42, shuffle=True)
+        # 2단계: 남은 80% 중 75% train / 25% val → 전체 기준 60% / 20%
+        idx_train, idx_val = train_test_split(idx_tv, test_size=0.25, random_state=42, shuffle=True)
     else:
-        X_train, X_test = X, X
-        idx_train, idx_test = list(range(len(df))), list(range(len(df)))
+        idx_train = idx_val = idx_test = list(range(n))
+
+    X_train = X[idx_train]
+    X_val   = X[idx_val]
+    X_test  = X[idx_test]
+
+    print(f"[Train] 데이터 분리 — 학습 {len(idx_train)}건 / 검증 {len(idx_val)}건 / 테스트 {len(idx_test)}건")
 
     models    = {}
     train_acc = {}
@@ -132,20 +143,23 @@ def train_models(exclude_manual: bool = False,
         try:
             y       = df[target].values.astype(int)
             y_train = y[idx_train]
+            y_val   = y[idx_val]
             y_test  = y[idx_test]
 
             clf = RandomForestClassifier(n_estimators=100, random_state=42)
             clf.fit(X_train, y_train)
 
             acc_train = clf.score(X_train, y_train)
+            acc_val   = clf.score(X_val,   y_val)
             acc_test  = clf.score(X_test,  y_test)
 
             models[target] = clf
             train_acc[target] = {
                 "train": round(acc_train, 4),
+                "val":   round(acc_val,   4),
                 "test":  round(acc_test,  4),
             }
-            print(f"[Train] {target}: 학습 {acc_train:.1%} / 검증 {acc_test:.1%}")
+            print(f"[Train] {target}: 학습 {acc_train:.1%} / 검증 {acc_val:.1%} / 테스트 {acc_test:.1%}")
         except Exception as e:
             print(f"[Train] {target} 학습 실패: {e}")
 
@@ -164,6 +178,7 @@ def train_models(exclude_manual: bool = False,
         "trained_at":     datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "data_count":     len(df),
         "train_count":    len(idx_train),
+        "val_count":      len(idx_val),
         "test_count":     len(idx_test),
         "features":       available_features,
         "exclude_manual": exclude_manual,
@@ -207,7 +222,8 @@ def list_versions() -> list:
                 "trained_at":     payload.get("trained_at", ""),
                 "data_count":     payload.get("data_count", 0),
                 "train_count":    payload.get("train_count", 0),
-                "test_count":     payload.get("test_count", 0),
+                "val_count":      payload.get("val_count",   0),
+                "test_count":     payload.get("test_count",  0),
                 "train_acc":      payload.get("train_acc", {}),
                 "features":       payload.get("features", FEATURES),
                 "exclude_manual": payload.get("exclude_manual", False),
