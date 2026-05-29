@@ -895,18 +895,18 @@ function HomePage({ data, onGoSensor }) {
                       {meta.name}
                       {meta.sub && <span style={{ color: '#9ca3af', fontWeight: 400, fontSize: 12, marginLeft: 4 }}>{meta.sub}</span>}
                     </div>
-                    <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 1 }}>{autoMode ? autoDesc : manualDesc}</div>
+                    <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 1 }}>{manualMode ? manualDesc : autoDesc}</div>
                   </div>
 
                   {/* 제어 영역 */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {autoMode ? (
-                      <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: badgeBg, color: badgeText }}>{statusLbl}</span>
-                    ) : (
+                    {manualMode ? (
                       <>
-                        <button onClick={() => toggleDevice(i, true)}  style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: isOn  ? (aiMode ? '#2563eb' : manualMode ? '#d97706' : '#22c55e') : '#f3f4f6', color: isOn  ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{onLbl}</button>
-                        <button onClick={() => toggleDevice(i, false)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: !isOn ? (aiMode ? '#2563eb' : manualMode ? '#d97706' : '#22c55e') : '#f3f4f6', color: !isOn ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{offLbl}</button>
+                        <button onClick={() => toggleDevice(i, true)}  style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: isOn  ? '#d97706' : '#f3f4f6', color: isOn  ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{onLbl}</button>
+                        <button onClick={() => toggleDevice(i, false)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: !isOn ? '#d97706' : '#f3f4f6', color: !isOn ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{offLbl}</button>
                       </>
+                    ) : (
+                      <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: badgeBg, color: badgeText }}>{statusLbl}</span>
                     )}
                     {/* 타이머 버튼 */}
                     <button
