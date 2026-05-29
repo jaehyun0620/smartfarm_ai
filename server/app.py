@@ -118,11 +118,14 @@ class ModeRequest(BaseModel):
 @app.post("/api/mode")
 def set_mode(req: ModeRequest):
     global control_mode
-    if req.mode not in ("auto", "ai"):
-        return {"ok": False, "error": "mode must be 'auto' or 'ai'"}
+    if req.mode not in ("auto", "ai", "manual"):
+        return {"ok": False, "error": "mode must be 'auto', 'ai', or 'manual'"}
     control_mode = req.mode
     print(f"[Mode] Changed to {control_mode}")
-    if req.mode == "auto" and serial_client:
+    if req.mode == "manual" and serial_client:
+        serial_client.send_control("manual", 1)
+        print("[Mode] Sent {manual:1} → Arduino rule-based stopped")
+    elif req.mode in ("auto", "ai") and serial_client:
         serial_client.send_control("manual", 0)
         print("[Mode] Sent {manual:0} → Arduino rule-based resumed")
     return {"ok": True, "mode": control_mode}

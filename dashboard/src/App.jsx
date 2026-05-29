@@ -531,7 +531,7 @@ function ModelVersionPanel({ currentVersion, onRollback }) {
 
 // ── Home page ─────────────────────────────────────────────────────────────────
 function HomePage({ data, onGoSensor }) {
-  const [controlMode, setControlMode] = useState('auto') // 'auto' | 'ai'
+  const [controlMode, setControlMode] = useState('auto') // 'auto' | 'ai' | 'manual'
   const [watered, setWatered]         = useState(false)
   const [expanded, setExpanded]       = useState(null)
   const [trainStatus, setTrainStatus] = useState({ total: 0, manual: 0, lastTrained: null, modelExists: false })
@@ -639,6 +639,10 @@ function HomePage({ data, onGoSensor }) {
   }
 
   const toggleDevice = (idx, val) => {
+    // 수동 모드가 아니면 자동으로 수동 모드 전환
+    if (controlMode !== 'manual') {
+      changeMode('manual')
+    }
     setDevOnState(prev => prev.map((v, i) => i === idx ? val : v))
     fetch(`${API_BASE_URL}/api/control`, {
       method: 'POST',
@@ -647,8 +651,9 @@ function HomePage({ data, onGoSensor }) {
     }).catch(console.error)
   }
 
-  const autoMode = controlMode === 'auto'
-  const aiMode   = controlMode === 'ai'
+  const autoMode   = controlMode === 'auto'
+  const aiMode     = controlMode === 'ai'
+  const manualMode = controlMode === 'manual'
 
   const { statusBars, plantSummary } = data ?? {
     statusBars:   [],
@@ -769,7 +774,7 @@ function HomePage({ data, onGoSensor }) {
       {/* ── AI / 수동 제어 섹션 ── */}
       <div style={{ padding: '20px 16px 0' }}>
         <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 10 }}>
-          {controlMode === 'auto' ? 'AI가 알아서 하고 있어요' : 'AI 모델이 제어 중'}
+          {controlMode === 'auto' ? '자동으로 제어 중이에요' : controlMode === 'ai' ? 'AI 모델이 제어 중이에요' : '수동으로 제어 중이에요'}
         </div>
 
         {/* AI 모드 카드 */}
@@ -810,25 +815,25 @@ function HomePage({ data, onGoSensor }) {
           {/* 모드 선택 */}
           <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #f3f4f6' }}>
             <span style={{ fontSize: 18, marginRight: 10 }}>
-              {controlMode === 'auto' ? '🤖' : '🧠'}
+              {controlMode === 'auto' ? '🤖' : controlMode === 'ai' ? '🧠' : '✋'}
             </span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>
-                {controlMode === 'auto' ? '자동 모드' : 'AI 모드'}
+                {controlMode === 'auto' ? '자동 모드' : controlMode === 'ai' ? 'AI 모드' : '수동 모드'}
               </div>
               <div style={{ color: '#9ca3af', fontSize: 12 }}>
-                {controlMode === 'auto' ? '규칙 기반으로 센서를 보고 알아서 제어해요' : '학습된 모델이 최적 제어를 판단해요 · 직접 조작도 가능해요'}
+                {controlMode === 'auto' ? '규칙 기반으로 센서를 보고 알아서 제어해요' : controlMode === 'ai' ? '학습된 모델이 최적 제어를 판단해요' : '기기를 직접 켜고 끌 수 있어요. 자동·AI 전환 시 해제돼요'}
               </div>
             </div>
             <div style={{ display: 'flex', gap: 6 }}>
-              {[['auto', '자동'], ['ai', 'AI']].map(([mode, label]) => (
+              {[['auto', '자동'], ['ai', 'AI'], ['manual', '수동']].map(([mode, label]) => (
                 <button
                   key={mode}
                   onClick={() => changeMode(mode)}
                   style={{
                     padding: '5px 14px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600,
                     cursor: 'pointer', fontFamily: 'inherit',
-                    background: controlMode === mode ? (mode === 'ai' ? '#2563eb' : '#22c55e') : '#f3f4f6',
+                    background: controlMode === mode ? (mode === 'ai' ? '#2563eb' : mode === 'manual' ? '#d97706' : '#22c55e') : '#f3f4f6',
                     color: controlMode === mode ? '#fff' : '#6b7280',
                     transition: 'background 0.15s',
                   }}
@@ -899,8 +904,8 @@ function HomePage({ data, onGoSensor }) {
                       <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: badgeBg, color: badgeText }}>{statusLbl}</span>
                     ) : (
                       <>
-                        <button onClick={() => toggleDevice(i, true)}  style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: isOn  ? (aiMode ? '#2563eb' : '#22c55e') : '#f3f4f6', color: isOn  ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{onLbl}</button>
-                        <button onClick={() => toggleDevice(i, false)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: !isOn ? (aiMode ? '#2563eb' : '#22c55e') : '#f3f4f6', color: !isOn ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{offLbl}</button>
+                        <button onClick={() => toggleDevice(i, true)}  style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: isOn  ? (aiMode ? '#2563eb' : manualMode ? '#d97706' : '#22c55e') : '#f3f4f6', color: isOn  ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{onLbl}</button>
+                        <button onClick={() => toggleDevice(i, false)} style={{ padding: '5px 12px', borderRadius: 20, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', background: !isOn ? (aiMode ? '#2563eb' : manualMode ? '#d97706' : '#22c55e') : '#f3f4f6', color: !isOn ? '#fff' : '#6b7280', transition: 'background 0.15s' }}>{offLbl}</button>
                       </>
                     )}
                     {/* 타이머 버튼 */}
