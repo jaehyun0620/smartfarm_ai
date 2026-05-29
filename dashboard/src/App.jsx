@@ -434,8 +434,7 @@ function ModelThresholdPanel({ currentVersion }) {
 
   if (!data || Object.keys(data).length === 0) return null
 
-  // fan1/fan2, window1/window2 중복 제거 → 대표 1개씩
-  const SHOW = ['fan1', 'window1', 'heater', 'humidifier', 'led']
+  const SHOW = ['fan1', 'fan2', 'window1', 'window2', 'heater', 'humidifier', 'led']
   const rows = SHOW.map(t => ({ target: t, ...data[t] })).filter(r => r.learned != null)
 
   return (
