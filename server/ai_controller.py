@@ -164,6 +164,56 @@ class AIController:
                 result[target] = {"train": acc, "val": None, "test": None}
         return result
 
+    def learned_thresholds(self) -> dict:
+        """
+        각 기기별 핵심 feature의 학습된 임계값 추출.
+        Random Forest 전체 트리에서 해당 feature의 분기 임계값 중앙값을 반환.
+        """
+        if not self.model_loaded:
+            return {}
+        try:
+            import numpy as np
+        except ImportError:
+            return {}
+
+        # 기기별 핵심 feature 및 방향 (rule 기준값, 단위)
+        KEY = {
+            "fan1":       {"feature": "temp1",     "rule": AUTO_RULES["temp_high"], "unit": "°C", "dir": "이상"},
+            "fan2":       {"feature": "temp1",     "rule": AUTO_RULES["temp_high"], "unit": "°C", "dir": "이상"},
+            "window1":    {"feature": "temp1",     "rule": AUTO_RULES["temp_high"], "unit": "°C", "dir": "이상"},
+            "window2":    {"feature": "temp1",     "rule": AUTO_RULES["temp_high"], "unit": "°C", "dir": "이상"},
+            "heater":     {"feature": "temp1",     "rule": AUTO_RULES["temp_low"],  "unit": "°C", "dir": "이하"},
+            "humidifier": {"feature": "hum1",      "rule": AUTO_RULES["hum_low"],   "unit": "%",  "dir": "이하"},
+            "led":        {"feature": "light_raw", "rule": AUTO_RULES["light_threshold"], "unit": "", "dir": "이상"},
+        }
+
+        result = {}
+        for target, clf in self.models.items():
+            meta = KEY.get(target)
+            if not meta or meta["feature"] not in FEATURES:
+                continue
+            feat_idx = FEATURES.index(meta["feature"])
+
+            # 모든 트리에서 해당 feature의 분기 임계값 수집
+            thresholds = []
+            for tree in clf.estimators_:
+                dt = tree.tree_
+                for node in range(dt.node_count):
+                    if dt.feature[node] == feat_idx and dt.threshold[node] > -2:
+                        thresholds.append(dt.threshold[node])
+
+            if thresholds:
+                learned = round(float(np.median(thresholds)), 1)
+                result[target] = {
+                    "feature": meta["feature"],
+                    "rule":    meta["rule"],
+                    "learned": learned,
+                    "unit":    meta["unit"],
+                    "dir":     meta["dir"],
+                    "diff":    round(learned - meta["rule"], 1),
+                }
+        return result
+
     def feature_importances(self) -> dict:
         """기기별 feature importance"""
         if not self.model_loaded:

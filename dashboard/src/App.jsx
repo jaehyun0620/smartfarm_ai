@@ -417,6 +417,70 @@ function TrainModal({ trainStatus, onClose, onTrainDone }) {
   )
 }
 
+// ── ModelThresholdPanel ───────────────────────────────────────────────────────
+const DEVICE_KO = { fan1: '팬 1', fan2: '팬 2', window1: '창문 1', window2: '창문 2', heater: '히터', humidifier: '가습기', led: 'LED' }
+const FEATURE_KO = { temp1: '온도', hum1: '습도', light_raw: '조도' }
+
+function ModelThresholdPanel({ currentVersion }) {
+  const [data, setData]       = useState(null)
+  const [expanded, setExpanded] = useState(false)
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/model-thresholds`, { headers: { 'ngrok-skip-browser-warning': '1' } })
+      .then(r => r.json())
+      .then(d => d.ok !== false && setData(d.thresholds))
+      .catch(() => {})
+  }, [currentVersion])   // 재학습·롤백 시 갱신
+
+  if (!data || Object.keys(data).length === 0) return null
+
+  // fan1/fan2, window1/window2 중복 제거 → 대표 1개씩
+  const SHOW = ['fan1', 'window1', 'heater', 'humidifier', 'led']
+  const rows = SHOW.map(t => ({ target: t, ...data[t] })).filter(r => r.learned != null)
+
+  return (
+    <div style={{ background: '#f9fafb', borderRadius: 12, padding: '12px 14px', marginTop: 10, border: '1px solid #e5e7eb' }}>
+      <div
+        onClick={() => setExpanded(v => !v)}
+        style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>📊 AI가 학습한 기준값</div>
+        <span style={{ color: '#9ca3af', fontSize: 12 }}>{expanded ? '▲ 접기' : '▼ 펼치기'}</span>
+      </div>
+
+      {expanded && (
+        <div style={{ marginTop: 12 }}>
+          {/* 헤더 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4, paddingBottom: 6, borderBottom: '1px solid #e5e7eb', marginBottom: 6 }}>
+            {['기기', '기준 센서', '규칙 기반', 'AI 학습값'].map(h => (
+              <span key={h} style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{h}</span>
+            ))}
+          </div>
+          {rows.map(row => {
+            const diff = row.diff ?? 0
+            const diffColor = diff === 0 ? '#9ca3af' : diff > 0 ? '#2563eb' : '#dc2626'
+            const diffStr   = diff === 0 ? '동일' : `${diff > 0 ? '+' : ''}${diff}${row.unit}`
+            return (
+              <div key={row.target} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 4, padding: '7px 0', borderBottom: '1px solid #f3f4f6', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#1c1c1e' }}>{DEVICE_KO[row.target]}</span>
+                <span style={{ fontSize: 12, color: '#6b7280' }}>{FEATURE_KO[row.feature] ?? row.feature}</span>
+                <span style={{ fontSize: 12, color: '#374151' }}>{row.rule}{row.unit} {row.dir}</span>
+                <div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#1c1c1e' }}>{row.learned}{row.unit} {row.dir}</span>
+                  <span style={{ fontSize: 11, color: diffColor, marginLeft: 4 }}>({diffStr})</span>
+                </div>
+              </div>
+            )
+          })}
+          <div style={{ fontSize: 11, color: '#9ca3af', marginTop: 8 }}>
+            * AI 학습값은 Random Forest 트리 분기 임계값의 중앙값
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── ModelVersionPanel ─────────────────────────────────────────────────────────
 function ModelVersionPanel({ currentVersion, onRollback }) {
   const [versions, setVersions]   = useState([])
@@ -803,6 +867,7 @@ function HomePage({ data, onGoSensor }) {
                 재학습
               </button>
             </div>
+            <ModelThresholdPanel currentVersion={currentVersion} />
             <ModelVersionPanel
               currentVersion={currentVersion}
               onRollback={(v) => { setCurrentVersion(v); refreshTrainStatus() }}

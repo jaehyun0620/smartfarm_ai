@@ -172,6 +172,17 @@ def model_info():
         return {"error": str(e)}
 
 
+@app.get("/api/model-thresholds")
+def model_thresholds():
+    try:
+        return {
+            "ok":         True,
+            "thresholds": ai_controller.learned_thresholds(),
+        }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 class TrainRequest(BaseModel):
     exclude_manual: bool = False
     exclude_ranges: list = []
