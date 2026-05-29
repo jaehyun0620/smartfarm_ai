@@ -744,8 +744,8 @@ function HomePage({ data, onGoSensor }) {
       <div style={{ padding: '20px 20px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{ width: 48, height: 48, borderRadius: '50%', background: '#dcfce7', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🌿</div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 700, fontSize: 17 }}>홍콩야자</div>
-          <div style={{ color: '#6b7280', fontSize: 13 }}>거실 창가 · 37일째</div>
+          <div style={{ fontWeight: 700, fontSize: 17 }}>딸기</div>
+          <div style={{ color: '#6b7280', fontSize: 13 }}>스마트팜 · 7일째</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
           <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: '#22c55e' }} />
@@ -1124,7 +1124,7 @@ function SensorPage({ data, onBack }) {
       <div style={{ padding: '20px 16px 0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 20 }}>센서 수치 · 로그</div>
-          <div style={{ color: '#6b7280', fontSize: 13, marginTop: 2 }}>홍콩야자 · 오늘 데이터</div>
+          <div style={{ color: '#6b7280', fontSize: 13, marginTop: 2 }}>딸기 · 오늘 데이터</div>
         </div>
         <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#6b7280', fontSize: 14, fontFamily: 'inherit', padding: '4px 0' }}>← 홈으로</button>
       </div>
