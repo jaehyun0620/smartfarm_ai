@@ -77,48 +77,48 @@ function transformRecords(records) {
       fill: soil, color: soil >= 40 && soil <= 70 ? 'green' : soil < 40 ? 'orange' : 'blue',
       text: soil >= 40 && soil <= 70 ? '좋아요' : soil < 40 ? '부족해요' : '과습해요',
       detail: soil < 40
-        ? '흙이 바짝 말랐어요. 지금 바로 물을 줘야 해요.'
+        ? '토양 수분이 부족해요. 물을 주세요.'
         : soil > 70
-        ? '흙이 너무 축축해요. 물 주기를 잠시 멈춰주세요.'
-        : '흙 상태가 좋아요. 현재 수분을 유지해 주세요.',
+        ? '토양이 과습 상태예요. 물 주기를 멈춰주세요.'
+        : '토양 수분이 적정 범위에 있어요. 현재 상태를 유지해 주세요.',
     },
     {
       key: 'air', icon: '☴', label: '공기',
       fill: co2Fill, color: co2Color,
       text: co2 < 800 ? '맑아요' : co2 < 1200 ? '주의해요' : '탁해요',
       detail: co2 < 800
-        ? '공기가 맑아요. 환기 상태가 좋습니다.'
+        ? '공기가 맑아요. 환기 상태가 좋아요.'
         : co2 < 1200
-        ? '공기가 조금 탁해요. 환기를 권장합니다.'
-        : '숨쉬기가 답답한 상태에요. AI가 환기팬을 켰어요. 창문도 열어주시면 훨씬 빨리 좋아져요.',
+        ? 'CO₂ 농도가 높아지고 있어요. 환기를 해주세요.'
+        : 'CO₂ 농도가 높아요. AI가 환기팬을 작동시켰어요. 창문을 열면 더 빨리 개선돼요.',
     },
     {
       key: 'sun', icon: '☀️', label: '햇빛',
       fill: lightFill, color: STATE_COLOR[st.light] ?? 'green',
       text: st.light === 'NORMAL' ? '딱 좋아요' : st.light === 'LOW' ? '어두워요' : '너무 밝아요',
       detail: st.light === 'NORMAL'
-        ? '지금 밝기가 딱 맞아요. 이대로 유지해 주세요.'
+        ? '조도가 적정 범위에 있어요. 현재 상태를 유지해 주세요.'
         : st.light === 'LOW'
-        ? '빛이 부족해요. LED를 켜거나 창 가까이 옮겨주세요.'
-        : '빛이 너무 강해요. 직사광선을 피해주세요.',
+        ? '조도가 부족해요. LED를 켜거나 채광이 좋은 곳으로 옮겨주세요.'
+        : '조도가 높아요. 직사광선을 피해주세요.',
     },
     {
       key: 'th', icon: '🌡', label: '온도·습도',
       fill: thOk ? 80 : 45, color: thOk ? 'green' : 'orange',
       text: thOk ? '쾌적해요' : '주의해요',
       detail: thOk
-        ? '따로 신경 쓰지 않아도 괜찮아요. AI가 관리하고 있어요.'
-        : `온도 ${st.temp === 'NORMAL' ? '정상' : st.temp} / 습도 ${st.humidity === 'NORMAL' ? '정상' : st.humidity}. 조절이 필요해요.`,
+        ? '온도와 습도가 적정 범위에 있어요. AI가 관리하고 있어요.'
+        : `온도 ${st.temp === 'NORMAL' ? '정상' : st.temp} / 습도 ${st.humidity === 'NORMAL' ? '정상' : st.humidity} — 자동으로 조절 중이에요.`,
     },
     {
       key: 'water', icon: '≋', label: '물통 수위',
       fill: waterPct, color: 'blue',
       text: waterPct > 50 ? '충분해요' : waterPct > 20 ? '절반 남았어요' : '부족해요',
       detail: waterPct > 50
-        ? '물통에 물이 충분해요. 약 2주 분량이 남았어요.'
+        ? '물통에 물이 충분해요.'
         : waterPct > 20
-        ? '물통 물이 절반 정도 남았어요. 곧 보충해 주세요.'
-        : '물통이 거의 비었어요. 지금 바로 채워주세요.',
+        ? '물통 물이 절반 정도 남았어요. 여유 있을 때 보충해 주세요.'
+        : '물통이 거의 비었어요. 물을 채워주세요.',
     },
   ]
 
@@ -169,7 +169,7 @@ function transformRecords(records) {
   if (st.humidity !== 'NORMAL') issues.push('습도를 조절해야 해요')
 
   const plantSummary = {
-    title:    issues.length === 0 ? '잘 자라고 있어요' : issues.length === 1 ? '조금 신경 써야 해요' : '조금 힘들어하고 있어요',
+    title:    issues.length === 0 ? '상태가 양호해요' : issues.length === 1 ? '일부 항목을 확인해 주세요' : '여러 항목에서 주의가 필요해요',
     subtitle: issues.length === 0 ? '모든 상태가 좋아요' : issues.join(', '),
   }
 
@@ -734,7 +734,7 @@ function HomePage({ data, onGoSensor }) {
             <span style={{ fontSize: 22 }}>🤚</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 600, fontSize: 14 }}>직접 물을 줘야 해요</div>
-              <div style={{ color: '#78716c', fontSize: 12, marginTop: 2 }}>흙이 바짝 말랐어요 · 500ml 정도 주세요</div>
+              <div style={{ color: '#78716c', fontSize: 12, marginTop: 2 }}>토양 수분이 부족해요 · 물을 주세요</div>
             </div>
             <button
               onClick={() => setWatered(v => !v)}
