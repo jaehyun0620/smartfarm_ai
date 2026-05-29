@@ -137,7 +137,7 @@ function transformRecords(records) {
   // ── 차트 데이터 ──
   const toTime = (ts) => {
     const d = new Date(ts)
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`
   }
   const getSensor = (r, key) => { const s = r.sensors ?? r; return s[key] }
   const chartData = {
