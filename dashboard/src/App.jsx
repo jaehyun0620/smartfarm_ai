@@ -9,6 +9,11 @@ const API_BASE_URL = 'https://smelting-evolution-grumpily.ngrok-free.dev'
 const API_ENDPOINT = `${API_BASE_URL}/api/sensor-logs`   // GET → records[]
 const POLL_INTERVAL_MS = 30_000                           // 30초마다 자동 갱신
 
+// ── 조도 센서 보정값 (실측 기준) ──────────────────────────────────────────────
+// raw 값이 높을수록 어두움 (역방향 센서)
+const LIGHT_RAW_BRIGHT = 740   // 밝을 때 실측 최솟값
+const LIGHT_RAW_DARK   = 912   // 어두울 때 실측 최댓값
+
 // ── State → UI 매핑 ───────────────────────────────────────────────────────────
 const STATE_COLOR = {
   NORMAL:       'green',
@@ -55,20 +60,27 @@ function transformRecords(records) {
   const co2      = parseInt(s.co2_raw)
   const waterPct = Math.min(100, Math.round(parseInt(s.water_raw) / 1023 * 100))
 
+  // 조도: raw 역방향 → 0~100% 밝기로 변환 (실측 범위 기준)
+  const lightPct = Math.max(0, Math.min(100,
+    Math.round((LIGHT_RAW_DARK - lightRaw) / (LIGHT_RAW_DARK - LIGHT_RAW_BRIGHT) * 100)
+  ))
+  const lightStatus = lightPct >= 50 ? '밝음' : lightPct >= 20 ? '보통' : '어두움'
+  const lightColor  = lightPct >= 50 ? 'green' : lightPct >= 20 ? 'orange' : 'red'
+
   // ── 센서 카드 데이터 ──
   const sensors = {
     soil:    { value: soil,    unit: '%',   label: '토양 수분', range: '적정 40~70%',      status: soil >= 40 && soil <= 70 ? '정상' : soil < 40 ? '부족' : '과습',       color: soil >= 40 && soil <= 70 ? 'green' : soil < 40 ? 'orange' : 'blue' },
     co2:     { value: co2,     unit: 'ppm', label: 'CO₂',      range: '적정 400~1000ppm', status: STATE_LABEL[st.co2]       ?? '정상', color: STATE_COLOR[st.co2]       ?? 'green' },
     temp:    { value: temp,    unit: '°C',  label: '온도',      range: '적정 18~28°C',     status: STATE_LABEL[st.temp]      ?? '정상', color: STATE_COLOR[st.temp]      ?? 'green' },
     humidity:{ value: hum,     unit: '%',   label: '습도',      range: '적정 50~70%',      status: STATE_LABEL[st.humidity]  ?? '정상', color: STATE_COLOR[st.humidity]  ?? 'green' },
-    light:   { value: lightRaw,unit: 'lx',  label: '조도',      range: '적정 500~2000lx',  status: STATE_LABEL[st.light]     ?? '정상', color: STATE_COLOR[st.light]     ?? 'green' },
+    light:   { value: lightPct, unit: '%',  label: '밝기',      range: '밝음 50% 이상',    status: lightStatus,                                                              color: lightColor },
     water:   { value: waterPct,unit: '%',   label: '수위',      range: '주의 20% 이하',    status: waterPct > 20 ? '충분' : '부족',                                        color: waterPct > 20 ? 'blue' : 'red' },
   }
 
   // ── 홈 상태바 ──
   const co2Fill  = co2 < 800 ? 80 : co2 < 1200 ? 40 : 20
   const co2Color = co2 < 800 ? 'green' : co2 < 1200 ? 'orange' : 'red'
-  const lightFill = Math.min(95, Math.round(lightRaw / 20))
+  const lightFill = lightPct   // 밝기 % 그대로 사용
   const thOk     = st.temp === 'NORMAL' && st.humidity === 'NORMAL'
 
   const statusBars = [
@@ -94,13 +106,13 @@ function transformRecords(records) {
     },
     {
       key: 'sun', icon: '☀️', label: '햇빛',
-      fill: lightFill, color: STATE_COLOR[st.light] ?? 'green',
-      text: st.light === 'NORMAL' ? '딱 좋아요' : st.light === 'LOW' ? '어두워요' : '너무 밝아요',
-      detail: st.light === 'NORMAL'
-        ? '조도가 적정 범위에 있어요. 현재 상태를 유지해 주세요.'
-        : st.light === 'LOW'
-        ? '조도가 부족해요. LED를 켜거나 채광이 좋은 곳으로 옮겨주세요.'
-        : '조도가 높아요. 직사광선을 피해주세요.',
+      fill: lightPct, color: lightColor,
+      text: lightStatus,
+      detail: lightPct >= 50
+        ? '밝기가 충분해요. 현재 상태를 유지해 주세요.'
+        : lightPct >= 20
+        ? '빛이 약간 부족해요. LED를 켜거나 채광이 좋은 곳으로 옮겨주세요.'
+        : '빛이 많이 부족해요. LED를 켜주세요.',
     },
     {
       key: 'th', icon: '🌡', label: '온도·습도',
@@ -145,7 +157,7 @@ function transformRecords(records) {
     co2:      records.map(r => ({ t: toTime(r.timestamp), v: parseInt(getSensor(r, 'co2_raw')) })),
     temp:     records.map(r => ({ t: toTime(r.timestamp), v: parseFloat(getSensor(r, 'temp1')) })),
     humidity: records.map(r => ({ t: toTime(r.timestamp), v: parseFloat(getSensor(r, 'hum1')) })),
-    light:    records.map(r => ({ t: toTime(r.timestamp), v: parseInt(getSensor(r, 'light_raw')) })),
+    light:    records.map(r => ({ t: toTime(r.timestamp), v: Math.max(0, Math.min(100, Math.round((LIGHT_RAW_DARK - parseInt(getSensor(r, 'light_raw'))) / (LIGHT_RAW_DARK - LIGHT_RAW_BRIGHT) * 100))) })),
     water:    records.map(r => ({ t: toTime(r.timestamp), v: Math.min(100, Math.round(parseInt(getSensor(r, 'water_raw')) / 1023 * 100)) })),
   }
 
@@ -212,7 +224,7 @@ const TABS = [
   { key: 'co2',      label: 'CO₂'      },
   { key: 'temp',     label: '온도'      },
   { key: 'humidity', label: '습도'      },
-  { key: 'light',    label: '조도'      },
+  { key: 'light',    label: '밝기'      },
   { key: 'water',    label: '수위'      },
 ]
 
@@ -1176,7 +1188,7 @@ function SensorPage({ data, onBack }) {
                 <span style={{ fontSize: 13, color: '#9ca3af', marginLeft: 2 }}>{sv.unit}</span>
               </div>
               <div style={{ height: 4, background: '#f3f4f6', borderRadius: 99, margin: '10px 0 8px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', borderRadius: 99, background: COLOR[sv.color]?.bar, width: key === 'co2' ? `${Math.min(100, ((sv.value - 400) / 1600) * 100)}%` : key === 'light' ? `${Math.min(100, sv.value / 20)}%` : `${sv.value}%` }} />
+                <div style={{ height: '100%', borderRadius: 99, background: COLOR[sv.color]?.bar, width: key === 'co2' ? `${Math.min(100, ((sv.value - 400) / 1600) * 100)}%` : `${sv.value}%` }} />
               </div>
               <div style={{ color: '#9ca3af', fontSize: 11 }}>{sv.range}</div>
               <div style={{ color: COLOR[sv.color]?.text, fontSize: 13, fontWeight: 600, marginTop: 2 }}>{sv.status}</div>
